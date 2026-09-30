@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CareerGoalType, loadCareerState, saveCareerState } from "../lib/career-state";
+import { CareerGoalType, OpportunityScope, WorkMode, loadCareerState, saveCareerState } from "../lib/career-state";
 
 type Goal =
   | "first-job"
@@ -500,13 +500,13 @@ export default function CareerDNA() {
         data.goal === "switch" ? "switch" :
         data.goal === "international" ? "international" : "explore";
 
-      const scope =
+      const scope: OpportunityScope =
         data.scope === "india" ? "india" :
         data.scope === "international" ? "international" :
         data.scope === "both" ? "both" :
         data.scope === "remote" ? "remote-worldwide" : "india";
 
-      const workModes = data.workModes.map((mode) =>
+      const workModes: WorkMode[] = data.workModes.map((mode) =>
         mode === "Remote" ? "remote" :
         mode === "Hybrid" ? "hybrid" :
         mode === "On-site" ? "onsite" : "flexible"
