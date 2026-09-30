@@ -1,5 +1,4 @@
 import {
-  ActionCategory,
   CareerState,
   NextBestAction,
   RoadmapNode,
@@ -21,7 +20,6 @@ const ROLE_REQUIREMENTS: Record<string, RoleRequirement[]> = {
     { skill: "Statistics", importance: "medium", targetLevel: 65 },
     { skill: "Data Visualization", importance: "high", targetLevel: 75 },
   ],
-
   "Business Analyst": [
     { skill: "Excel", importance: "high", targetLevel: 80 },
     { skill: "SQL", importance: "high", targetLevel: 70 },
@@ -29,7 +27,6 @@ const ROLE_REQUIREMENTS: Record<string, RoleRequirement[]> = {
     { skill: "Power BI", importance: "medium", targetLevel: 65 },
     { skill: "Communication", importance: "high", targetLevel: 80 },
   ],
-
   "Product Analyst": [
     { skill: "SQL", importance: "high", targetLevel: 80 },
     { skill: "Excel", importance: "medium", targetLevel: 70 },
@@ -37,7 +34,6 @@ const ROLE_REQUIREMENTS: Record<string, RoleRequirement[]> = {
     { skill: "Data Visualization", importance: "high", targetLevel: 75 },
     { skill: "Statistics", importance: "medium", targetLevel: 65 },
   ],
-
   "Data Scientist": [
     { skill: "Python", importance: "high", targetLevel: 85 },
     { skill: "SQL", importance: "high", targetLevel: 75 },
@@ -47,78 +43,74 @@ const ROLE_REQUIREMENTS: Record<string, RoleRequirement[]> = {
   ],
 };
 
-function getRequirements(targetRole: string): RoleRequirement[] {
-  return (
-    ROLE_REQUIREMENTS[targetRole] ??
-    [
-      {
-        skill: "Communication",
-        importance: "high",
-        targetLevel: 75,
-      },
-      {
-        skill: "Problem Solving",
-        importance: "high",
-        targetLevel: 75,
-      },
-      {
-        skill: "Domain Knowledge",
-        importance: "medium",
-        targetLevel: 65,
-      },
-    ]
-  );
-}
+const getRequirements = (role: string): RoleRequirement[] =>
+  ROLE_REQUIREMENTS[role] ?? [
+    { skill: "Communication", importance: "high", targetLevel: 75 },
+    { skill: "Problem Solving", importance: "high", targetLevel: 75 },
+    { skill: "Domain Knowledge", importance: "medium", targetLevel: 65 },
+  ];
+
+const slug = (value: string) =>
+  value.toLowerCase().replace(/\s+/g, "-");
+
+const weight = (importance: RoleRequirement["importance"]) =>
+  importance === "high" ? 1 : importance === "medium" ? 0.7 : 0.4;
 
 export function syncSkillRecords(state: CareerState): CareerState {
   const requirements = getRequirements(state.targetRole);
-
   const existing = state.skillRecords ?? [];
+  const now = new Date().toISOString();
 
   const skillRecords: SkillRecord[] = requirements.map((requirement) => {
-    const existingSkill = existing.find(
+    const previous = existing.find(
       (skill) =>
         skill.name.toLowerCase() === requirement.skill.toLowerCase(),
     );
 
+    const selfReported = state.skills.some(
+      (skill) =>
+        skill.toLowerCase() === requirement.skill.toLowerCase(),
+    );
+
     return {
       name: requirement.skill,
-      currentLevel: existingSkill?.currentLevel ?? 0,
+      currentLevel:
+        previous?.currentLevel ?? (selfReported ? 30 : 0),
       targetLevel: requirement.targetLevel,
-      verified: existingSkill?.verified ?? false,
-      evidenceCount: existingSkill?.evidenceCount ?? 0,
+      confidence:
+        previous?.confidence ?? (selfReported ? 35 : 0),
+      evidence: previous?.evidence ?? [],
+      verified: previous?.verified ?? false,
+      lastUpdated: previous?.lastUpdated ?? now,
     };
   });
 
   return {
     ...state,
     skillRecords,
-    updatedAt: new Date().toISOString(),
+    updatedAt: now,
   };
 }
 
 export function getSkillGapAnalysis(state: CareerState) {
   const requirements = getRequirements(state.targetRole);
 
-  const skills = state.skillRecords ?? [];
-
   return requirements.map((requirement) => {
-    const skill = skills.find(
+    const skill = (state.skillRecords ?? []).find(
       (item) =>
         item.name.toLowerCase() === requirement.skill.toLowerCase(),
     );
 
     const currentLevel = skill?.currentLevel ?? 0;
-    const gap = Math.max(requirement.targetLevel - currentLevel, 0);
 
     return {
       skill: requirement.skill,
       importance: requirement.importance,
       currentLevel,
       targetLevel: requirement.targetLevel,
-      gap,
+      gap: Math.max(requirement.targetLevel - currentLevel, 0),
       verified: skill?.verified ?? false,
-      evidenceCount: skill?.evidenceCount ?? 0,
+      evidenceCount: skill?.evidence.length ?? 0,
     };
   });
 }
@@ -126,72 +118,48 @@ export function getSkillGapAnalysis(state: CareerState) {
 export function calculateSkillReadiness(state: CareerState): number {
   const analysis = getSkillGapAnalysis(state);
 
-  if (analysis.length === 0) {
-    return 0;
+  if (!analysis.length) return 0;
+
+  let score = 0;
+  let total = 0;
+
+  for (const item of analysis) {
+    const itemWeight = weight(item.importance);
+
+    score +=
+      Math.min(item.currentLevel / item.targetLevel, 1) *
+      itemWeight;
+
+    total += itemWeight;
   }
 
-  const weightedScore = analysis.reduce((total, item) => {
-    const importanceWeight =
-      item.importance === "high"
-        ? 1
-        : item.importance === "medium"
-          ? 0.7
-          : 0.4;
-
-    const levelScore = Math.min(
-      item.currentLevel / item.targetLevel,
-      1,
-    );
-
-    return total + levelScore * importanceWeight;
-  }, 0);
-
-  const totalWeight = analysis.reduce((total, item) => {
-    return (
-      total +
-      (item.importance === "high"
-        ? 1
-        : item.importance === "medium"
-          ? 0.7
-          : 0.4)
-    );
-  }, 0);
-
-  return totalWeight === 0
-    ? 0
-    : Math.round((weightedScore / totalWeight) * 100);
+  return total ? Math.round((score / total) * 100) : 0;
 }
 
 export function calculateCareerReadiness(state: CareerState): number {
   const skillReadiness = calculateSkillReadiness(state);
+  const records = state.skillRecords ?? [];
 
-  const verifiedSkills =
-    (state.skillRecords ?? []).filter((skill) => skill.verified).length;
-
-  const totalSkills = (state.skillRecords ?? []).length;
-
-  const verificationScore =
-    totalSkills === 0
+  const verified =
+    records.length === 0
       ? 0
-      : (verifiedSkills / totalSkills) * 100;
+      : (records.filter((skill) => skill.verified).length /
+          records.length) *
+        100;
 
-  const evidenceScore =
-    (state.evidence ?? []).length >= 2
-      ? 100
-      : (state.evidence ?? []).length * 50;
+  const evidence = Math.min(state.evidence.length * 50, 100);
 
-  const portfolioScore =
-    (state.evidence ?? []).some(
-      (item) => item.type === "project",
-    )
-      ? 100
-      : 0;
+  const portfolio = state.evidence.some(
+    (item) => item.type === "project",
+  )
+    ? 100
+    : 0;
 
   return Math.round(
     skillReadiness * 0.6 +
-      verificationScore * 0.2 +
-      evidenceScore * 0.1 +
-      portfolioScore * 0.1,
+      verified * 0.2 +
+      evidence * 0.1 +
+      portfolio * 0.1,
   );
 }
 
@@ -204,33 +172,36 @@ export function getNextBestAction(
       title: "Choose your career direction",
       description:
         "Set a clear target so CareerPilot can build your personalized career path.",
-      category: "discovery" as ActionCategory,
+      category: "discovery",
       priority: "high",
+      impact: 90,
+      estimatedMinutes: 5,
       reason:
         "CareerPilot needs a destination before it can calculate meaningful skill gaps.",
+      destination: "/career-goal",
     };
   }
 
   const analysis = getSkillGapAnalysis(state);
 
-  const unverifiedSkill = analysis.find(
+  const verify = analysis.find(
     (item) =>
       item.currentLevel >= item.targetLevel * 0.8 &&
       !item.verified,
   );
 
-  if (unverifiedSkill) {
+  if (verify) {
     return {
-      id: `verify-${unverifiedSkill.skill
-        .toLowerCase()
-        .replace(/\s+/g, "-")}`,
-      title: `Verify ${unverifiedSkill.skill}`,
-      description:
-        `Your ${unverifiedSkill.skill} level is close to the target. Complete a practical assessment to turn the skill into verified evidence.`,
-      category: "evidence" as ActionCategory,
+      id: `verify-${slug(verify.skill)}`,
+      title: `Verify ${verify.skill}`,
+      description: `Complete a practical assessment to turn your ${verify.skill} signal into verified evidence.`,
+      category: "evidence",
       priority: "high",
+      impact: 85,
+      estimatedMinutes: 30,
       reason:
-        "You are close to the target level, but the skill currently lacks verification.",
+        "The skill is close to the target but currently lacks verification.",
+      destination: "/skills-gap",
     };
   }
 
@@ -240,36 +211,35 @@ export function getNextBestAction(
 
   if (largestGap) {
     return {
-      id: `build-${largestGap.skill
-        .toLowerCase()
-        .replace(/\s+/g, "-")}`,
+      id: `build-${slug(largestGap.skill)}`,
       title: `Build ${largestGap.skill}`,
-      description:
-        `Improve your ${largestGap.skill} capability to close one of the most important gaps for ${state.targetRole}.`,
-      category: "skill" as ActionCategory,
+      description: `Improve ${largestGap.skill} to close an important gap for ${state.targetRole}.`,
+      category: "skill",
       priority:
-        largestGap.importance === "high"
-          ? "high"
-          : "medium",
-      reason:
-        `${largestGap.skill} is currently ${largestGap.currentLevel}% and the target level is ${largestGap.targetLevel}%.`,
+        largestGap.importance === "high" ? "high" : "normal",
+      impact: largestGap.importance === "high" ? 90 : 70,
+      estimatedMinutes: 45,
+      reason: `${largestGap.skill} is ${largestGap.currentLevel}% versus a ${largestGap.targetLevel}% target.`,
+      destination: "/skills-gap",
     };
   }
 
-  const projectEvidence = (state.evidence ?? []).filter(
+  const projects = state.evidence.filter(
     (item) => item.type === "project",
-  );
+  ).length;
 
-  if (projectEvidence.length < 2) {
+  if (projects < 2) {
     return {
       id: "build-project",
       title: "Build a portfolio project",
-      description:
-        `Create a practical ${state.targetRole} project that demonstrates your skills with real evidence.`,
-      category: "portfolio" as ActionCategory,
+      description: `Create a practical ${state.targetRole} project that demonstrates your skills with evidence.`,
+      category: "project",
       priority: "high",
+      impact: 85,
+      estimatedMinutes: 90,
       reason:
-        "Your skills are developing, but your portfolio needs stronger practical evidence.",
+        "Your core skill gaps are currently closed, so practical evidence is the next constraint.",
+      destination: "/dashboard",
     };
   }
 
@@ -277,18 +247,23 @@ export function getNextBestAction(
     id: "prepare-opportunities",
     title: "Prepare for matching opportunities",
     description:
-      "Your core skills and evidence are in place. The next step is to prepare your resume and start targeting relevant opportunities.",
-    category: "application" as ActionCategory,
+      "Prepare your resume and target relevant opportunities.",
+    category: "application",
     priority: "high",
+    impact: 90,
+    estimatedMinutes: 30,
     reason:
-      "Your current career state is ready to move from capability building toward employment.",
+      "Your current career state is ready to move toward employment.",
+    destination: "/resume-intelligence",
   };
 }
 
-export function buildRoadmap(state: CareerState): RoadmapNode[] {
+export function buildRoadmap(
+  state: CareerState,
+): RoadmapNode[] {
   const analysis = getSkillGapAnalysis(state);
 
-  const nodes: RoadmapNode[] = [
+  return [
     {
       id: "direction",
       title: "Career direction",
@@ -298,31 +273,28 @@ export function buildRoadmap(state: CareerState): RoadmapNode[] {
       evidenceRequired: false,
     },
 
-    ...analysis.map((skill) => ({
-      id: `skill-${skill.skill
-        .toLowerCase()
-        .replace(/\s+/g, "-")}`,
-      title: skill.skill,
-      category:
-        skill.verified
-          ? ("evidence" as ActionCategory)
-          : ("skill" as ActionCategory),
-      status:
-        skill.gap === 0 && skill.verified
-          ? "completed"
-          : skill.currentLevel > 0
-            ? "in-progress"
-            : "available",
-      requiredSkills: [skill.skill],
-      evidenceRequired: true,
-    })),
+    ...analysis.map(
+      (skill): RoadmapNode => ({
+        id: `skill-${slug(skill.skill)}`,
+        title: skill.skill,
+        category: skill.verified ? "evidence" : "skill",
+        status:
+          skill.gap === 0 && skill.verified
+            ? "completed"
+            : skill.currentLevel > 0
+              ? "in-progress"
+              : "available",
+        requiredSkills: [skill.skill],
+        evidenceRequired: true,
+      }),
+    ),
 
     {
       id: "portfolio",
       title: "Build portfolio evidence",
-      category: "portfolio",
+      category: "project",
       status:
-        (state.evidence ?? []).filter(
+        state.evidence.filter(
           (item) => item.type === "project",
         ).length >= 2
           ? "completed"
@@ -336,7 +308,7 @@ export function buildRoadmap(state: CareerState): RoadmapNode[] {
     {
       id: "resume",
       title: "Prepare your resume",
-      category: "application",
+      category: "resume",
       status: "available",
       requiredSkills: [],
       evidenceRequired: true,
@@ -345,7 +317,7 @@ export function buildRoadmap(state: CareerState): RoadmapNode[] {
     {
       id: "applications",
       title: "Target relevant opportunities",
-      category: "application",
+      category: "job-search",
       status: "available",
       requiredSkills: [],
       evidenceRequired: true,
@@ -360,6 +332,4 @@ export function buildRoadmap(state: CareerState): RoadmapNode[] {
       evidenceRequired: true,
     },
   ];
-
-  return nodes;
 }
