@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { loadCareerState, saveCareerState } from "../lib/career-state";
 
 type Goal =
   | "first-job"
@@ -489,10 +490,72 @@ export default function CareerDNA() {
 
   const goToCareerGoal = () => {
     try {
-      localStorage.setItem(
-        "careerpilot-dna",
-        JSON.stringify(data),
+      localStorage.setItem("careerpilot-dna", JSON.stringify(data));
+
+      const current = loadCareerState();
+
+      const goalType =
+        data.goal === "first-job" ? "first-job" :
+        data.goal === "grow" ? "grow" :
+        data.goal === "switch" ? "switch" :
+        data.goal === "international" ? "international" : "explore";
+
+      const scope =
+        data.scope === "india" ? "india" :
+        data.scope === "international" ? "international" :
+        data.scope === "both" ? "both" :
+        data.scope === "remote" ? "remote-worldwide" : "india";
+
+      const workModes = data.workModes.map((mode) =>
+        mode === "Remote" ? "remote" :
+        mode === "Hybrid" ? "hybrid" :
+        mode === "On-site" ? "onsite" : "flexible"
       );
+
+      const role =
+        data.targetRole &&
+        data.targetRole !== "Something else" &&
+        data.targetRole !== "I'm not sure yet"
+          ? data.targetRole
+          : current.targetRole;
+
+      const next = {
+        ...current,
+        profile: {
+          ...current.profile,
+          currentLocation: data.currentLocation,
+          education: data.education,
+          currentRole: data.currentRole,
+        },
+        experience:
+          data.goal === "grow" || data.goal === "switch"
+            ? "Working professional"
+            : "Early career",
+        skills: data.skills,
+        targetRole: role,
+        workMode: data.workModes.join(" · "),
+        geography:
+          data.scope === "india" ? "India" :
+          data.scope === "international" ? "International" :
+          data.scope === "both" ? "India + International" :
+          "Remote worldwide",
+        primaryGoal: {
+          id: "primary-career-goal",
+          role,
+          type: goalType,
+          seniority: data.goal === "grow" ? "Mid-level" : "Entry-level",
+          scope,
+          workModes,
+          preferredLocations: [
+            ...data.preferredLocations,
+            ...data.internationalLocations,
+          ],
+          active: true,
+          createdAt: current.primaryGoal?.createdAt ?? new Date().toISOString(),
+        },
+      };
+
+      saveCareerState(next);
     } catch {
       // Ignore storage errors
     }
