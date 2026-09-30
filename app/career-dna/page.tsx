@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { loadCareerState, saveCareerState } from "../lib/career-state";
+import { CareerGoalType, loadCareerState, saveCareerState } from "../lib/career-state";
 
 type Goal =
   | "first-job"
@@ -494,7 +494,7 @@ export default function CareerDNA() {
 
       const current = loadCareerState();
 
-      const goalType =
+      const goalType: CareerGoalType =
         data.goal === "first-job" ? "first-job" :
         data.goal === "grow" ? "grow" :
         data.goal === "switch" ? "switch" :
