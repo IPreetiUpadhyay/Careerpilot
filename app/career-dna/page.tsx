@@ -1,5 +1,7 @@
 "use client";
 
+// Career DNA type-safe state mapping
+
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CareerGoalType, OpportunityScope, WorkMode, loadCareerState, saveCareerState } from "../lib/career-state";
