@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   BriefcaseBusiness,
@@ -11,7 +11,7 @@ import {
   Sparkles,
   Target,
 } from "lucide-react";
-import { CareerState, defaultCareerState, saveCareerState } from "../lib/career-state";
+import { CareerState, defaultCareerState, loadCareerState, saveCareerState } from "../lib/career-state";
 
 const roles = [
   { name: "Data Analyst", description: "Turn data into insights, dashboards and decisions.", skills: ["SQL", "Excel", "Power BI", "Python"] },
@@ -25,6 +25,10 @@ const geographies = ["India", "India + International", "International / Relocati
 
 export default function CareerGoalPage() {
   const [state, setState] = useState<CareerState>(defaultCareerState);
+
+  useEffect(() => {
+    setState(loadCareerState());
+  }, []);
   const [step, setStep] = useState(1);
   const [saved, setSaved] = useState(false);
 
@@ -38,7 +42,58 @@ export default function CareerGoalPage() {
   }
 
   function finish() {
-    const next = { ...state, goalSet: true };
+    const dna =
+      typeof window !== "undefined"
+        ? JSON.parse(localStorage.getItem("careerpilot-dna") ?? "{}")
+        : {};
+
+    const goalType =
+      dna.goal === "first-job" ? "first-job" :
+      dna.goal === "grow" ? "grow" :
+      dna.goal === "switch" ? "switch" :
+      dna.goal === "international" ? "international" : "explore";
+
+    const scope =
+      state.geography === "India" ? "india" :
+      state.geography === "International / Relocation" ? "international" :
+      state.geography === "Remote worldwide" ? "remote-worldwide" : "both";
+
+    const workModes = state.workMode.split(" · ")
+      .map((mode) =>
+        mode === "Remote" ? "remote" :
+        mode === "Hybrid" ? "hybrid" :
+        mode === "On-site" ? "onsite" : "flexible"
+      )
+      .filter(Boolean) as Array<"remote" | "hybrid" | "onsite" | "flexible">;
+
+    const next: CareerState = {
+      ...state,
+      version: 2,
+      goalSet: true,
+      targetRole: selectedRole.name,
+      skills: selectedRole.skills,
+      profile: {
+        ...state.profile,
+        currentLocation: state.profile.currentLocation || dna.currentLocation || "",
+        education: state.profile.education || dna.education || "",
+        currentRole: state.profile.currentRole || dna.currentRole || "",
+      },
+      primaryGoal: {
+        id: state.primaryGoal?.id ?? "primary-career-goal",
+        role: selectedRole.name,
+        type: goalType,
+        seniority: dna.goal === "grow" ? "Mid-level" : "Entry-level",
+        scope,
+        workModes: workModes.length ? workModes : ["flexible"],
+        preferredLocations: [
+          ...(dna.preferredLocations ?? []),
+          ...(dna.internationalLocations ?? []),
+        ],
+        active: true,
+        createdAt: state.primaryGoal?.createdAt ?? new Date().toISOString(),
+      },
+    };
+
     saveCareerState(next);
     setState(next);
     setSaved(true);
