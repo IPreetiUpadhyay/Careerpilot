@@ -1,67 +1,891 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, CheckCircle2, ChevronLeft, CircleAlert, Gauge, Sparkles, Target } from "lucide-react";
-import { loadCareerState, CareerState } from "../lib/career-state";
-import { buildSkillAnalysis, getSkillSummary, SkillAnalysis } from "../lib/skill-engine";
+import {
+  ArrowLeft,
+  ArrowRight,
+  BrainCircuit,
+  Check,
+  CheckCircle2,
+  CircleAlert,
+  Gauge,
+  Layers3,
+  Sparkles,
+  Target,
+  ShieldCheck,
+  FolderKanban,
+} from "lucide-react";
 
-const filters = ["All", "Critical", "High", "Medium"] as const;
-type Filter = (typeof filters)[number];
+import {
+  CareerState,
+  loadCareerState,
+} from "../lib/career-state";
+
+import {
+  calculateCareerReadiness,
+  calculateSkillReadiness,
+  getNextBestAction,
+  getSkillGapAnalysis,
+  syncSkillRecords,
+} from "../lib/career-intelligence";
+
+type Filter = "All" | "High" | "Medium" | "Verified";
 
 export default function SkillsGapPage() {
-  const [careerState, setCareerState] = useState<CareerState | null>(null);
-  const [filter, setFilter] = useState<Filter>("All");
-  const [selectedName, setSelectedName] = useState("");
-  const [completed, setCompleted] = useState<string[]>([]);
+  const [state, setState] =
+    useState<CareerState | null>(null);
+
+  const [filter, setFilter] =
+    useState<Filter>("All");
+
+  const [selectedSkill, setSelectedSkill] =
+    useState("");
+
+  const [recordedActions, setRecordedActions] =
+    useState<string[]>([]);
 
   useEffect(() => {
-    const refresh = () => setCareerState(loadCareerState());
+    const refresh = () => {
+      const current = loadCareerState();
+      const synced = syncSkillRecords(current);
+
+      setState(synced);
+    };
+
     refresh();
-    window.addEventListener("careerpilot-state-updated", refresh);
-    return () => window.removeEventListener("careerpilot-state-updated", refresh);
+
+    window.addEventListener(
+      "careerpilot-state-updated",
+      refresh,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "careerpilot-state-updated",
+        refresh,
+      );
+    };
   }, []);
 
-  const analysis = useMemo(() => careerState ? buildSkillAnalysis(careerState) : [], [careerState]);
+  const analysis = useMemo(() => {
+    if (!state) return [];
+
+    return getSkillGapAnalysis(
+      syncSkillRecords(state),
+    );
+  }, [state]);
 
   useEffect(() => {
-    if (analysis.length && !analysis.some((item) => item.name === selectedName)) {
-      const firstGap = analysis.find((item) => item.current < item.required);
-      setSelectedName(firstGap?.name ?? analysis[0].name);
-    }
-  }, [analysis, selectedName]);
+    if (!analysis.length) return;
 
-  if (!careerState || !analysis.length) {
-    return <main className="min-h-screen bg-[#08090d] text-zinc-100"><div className="mx-auto max-w-4xl px-6 py-20"><p className="text-sm text-violet-300">Skills Intelligence</p><h1 className="mt-3 text-4xl font-semibold">Build your career goal first.</h1><p className="mt-4 max-w-xl text-sm leading-6 text-zinc-500">CareerPilot uses your selected role and skill map to calculate the gaps that matter.</p><a href="/career-goal" className="mt-7 inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-black">Set career goal <ArrowRight size={16} /></a></div></main>;
+    const exists = analysis.some(
+      (item) => item.skill === selectedSkill,
+    );
+
+    if (!exists) {
+      const firstGap = [...analysis]
+        .filter((item) => item.gap > 0)
+        .sort((a, b) => b.gap - a.gap)[0];
+
+      setSelectedSkill(
+        firstGap?.skill ?? analysis[0].skill,
+      );
+    }
+  }, [analysis, selectedSkill]);
+
+  if (!state) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#08090d] text-zinc-100">
+        <p className="text-sm text-zinc-500">
+          Loading Skill Intelligence...
+        </p>
+      </main>
+    );
   }
 
-  const selected = analysis.find((item) => item.name === selectedName) ?? analysis[0];
-  const filtered = analysis.filter((skill) => filter === "All" || skill.priority === filter);
-  const summary = getSkillSummary(analysis);
+  if (!state.goalSet || !state.targetRole) {
+    return <NoCareerGoal />;
+  }
+
+  const selected =
+    analysis.find(
+      (item) => item.skill === selectedSkill,
+    ) ?? analysis[0];
+
+  const filtered = analysis.filter((skill) => {
+    if (filter === "All") return true;
+
+    if (filter === "Verified") {
+      return skill.verified;
+    }
+
+    return (
+      skill.importance.toLowerCase() ===
+      filter.toLowerCase()
+    );
+  });
+
+  const skillReadiness =
+    calculateSkillReadiness(state);
+
+  const careerReadiness =
+    calculateCareerReadiness(state);
+
+  const verifiedCount = analysis.filter(
+    (skill) => skill.verified,
+  ).length;
+
+  const gapCount = analysis.filter(
+    (skill) => skill.gap > 0,
+  ).length;
+
+  const highPriorityGaps = analysis.filter(
+    (skill) =>
+      skill.gap > 0 &&
+      skill.importance === "high",
+  ).length;
+
+  const nextAction =
+    getNextBestAction(state);
 
   return (
     <main className="min-h-screen bg-[#08090d] text-zinc-100">
-      <div className="pointer-events-none fixed inset-0 overflow-hidden"><div className="absolute left-[15%] top-[-18%] h-[520px] w-[520px] rounded-full bg-violet-600/10 blur-[130px]" /><div className="absolute right-[-8%] top-[30%] h-[420px] w-[420px] rounded-full bg-cyan-500/[.06] blur-[120px]" /></div>
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute left-[15%] top-[-15%] h-[500px] w-[500px] rounded-full bg-violet-600/10 blur-[130px]" />
+
+        <div className="absolute right-[-10%] top-[30%] h-[420px] w-[420px] rounded-full bg-cyan-500/[.06] blur-[120px]" />
+      </div>
+
       <div className="relative mx-auto max-w-[1250px] px-5 py-7 sm:px-8 lg:px-10">
-        <header className="flex items-center justify-between border-b border-white/[.07] pb-6"><a href="/dashboard" className="flex items-center gap-2 text-sm text-zinc-500 hover:text-white"><ChevronLeft size={17} /> Dashboard</a><div className="flex items-center gap-2 text-sm font-semibold"><span className="grid h-8 w-8 place-items-center rounded-xl bg-white text-black"><Target size={16} /></span>CareerPilot</div><span className="text-xs text-zinc-600">Skills Intelligence</span></header>
 
-        <section className="mt-8"><div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"><div><div className="flex items-center gap-2 text-xs font-medium text-cyan-300"><Sparkles size={14} /> Connected to Career Goal</div><h1 className="mt-3 text-3xl font-semibold tracking-[-.035em] sm:text-4xl">Close the gaps that matter for {careerState.targetRole}.</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-500">This analysis is generated from your shared CareerPilot state. Change your target role or opportunity scope and the skill priorities can change with it.</p></div><div className="rounded-2xl border border-white/[.07] bg-white/[.025] px-5 py-4"><p className="text-[10px] uppercase tracking-[.18em] text-zinc-600">Target career</p><p className="mt-2 font-medium">{careerState.targetRole}</p><p className="mt-1 text-xs text-zinc-600">{careerState.geography} · {careerState.workMode}</p></div></div></section>
+        {/* HEADER */}
 
-        <section className="mt-7 grid gap-4 md:grid-cols-3"><Stat label="Career readiness" value={`${summary.readiness}%`} sub="Across role-relevant skills" icon={<Gauge size={16} />} /><Stat label="Priority gaps" value={`${summary.gaps}`} sub={`${summary.critical} critical`} icon={<CircleAlert size={16} />} /><Stat label="Skill map" value={`${analysis.length}`} sub={`${careerState.skills.length} skills from your career state`} icon={<Target size={16} />} /></section>
+        <header className="flex items-center justify-between border-b border-white/[.07] pb-6">
+          <a
+            href="/dashboard"
+            className="flex items-center gap-2 text-sm text-zinc-500 transition hover:text-white"
+          >
+            <ArrowLeft size={16} />
+            Command Center
+          </a>
 
-        <section className="mt-6 grid gap-6 lg:grid-cols-[1.55fr_.85fr]">
-          <div className="rounded-3xl border border-white/[.07] bg-white/[.025] p-6"><div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="text-lg font-semibold">Skill gap map</h2><p className="mt-1 text-sm text-zinc-500">Current signal vs. estimated requirement for {careerState.targetRole}</p></div><div className="flex flex-wrap gap-2">{filters.map((item) => <button key={item} onClick={() => setFilter(item)} className={`rounded-full px-3 py-1.5 text-xs transition ${filter === item ? "bg-white text-zinc-900" : "border border-white/[.08] bg-white/[.03] text-zinc-500 hover:bg-white/[.06]"}`}>{item}</button>)}</div></div>
-            <div className="space-y-3">{filtered.map((skill) => { const gap = Math.max(skill.required - skill.current, 0); const done = completed.includes(skill.name); return <button key={skill.name} onClick={() => setSelectedName(skill.name)} className={`w-full rounded-2xl border p-4 text-left transition ${selected.name === skill.name ? "border-cyan-400/30 bg-cyan-400/[.05]" : "border-white/[.06] bg-black/10 hover:bg-white/[.035]"}`}><div className="flex items-center justify-between gap-4"><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><span className="font-medium">{skill.name}</span><Priority priority={skill.priority} />{done && <span className="text-xs text-emerald-300">✓ Action complete</span>}</div><div className="mt-3 h-2 overflow-hidden rounded-full bg-white/[.07]"><div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-cyan-400" style={{ width: `${skill.current}%` }} /></div><div className="mt-2 flex justify-between text-[11px] text-zinc-600"><span>Current {skill.current}%</span><span>Required {skill.required}%</span></div></div><div className="hidden text-right sm:block"><div className="text-lg font-semibold">{gap > 0 ? `-${gap}%` : "Ready"}</div><div className="text-[11px] text-zinc-600">gap</div></div></div></button>; })}</div>
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <span className="grid h-8 w-8 place-items-center rounded-xl bg-white text-black">
+              <BrainCircuit size={16} />
+            </span>
+
+            CareerPilot
           </div>
 
-          <aside className="rounded-3xl border border-cyan-300/15 bg-gradient-to-b from-cyan-300/[.07] to-white/[.02] p-6"><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-medium uppercase tracking-[.16em] text-cyan-300">Next best action</p><h2 className="mt-2 text-2xl font-semibold">{selected.name}</h2></div><Priority priority={selected.priority} /></div><p className="mt-4 text-sm leading-6 text-zinc-400">Your current signal is <strong className="text-white">{selected.current}%</strong>. CareerPilot estimates <strong className="text-white">{selected.required}%</strong> is needed for your selected target.</p><div className="mt-5 rounded-2xl border border-white/[.07] bg-black/10 p-4"><p className="text-xs text-zinc-600">Why this matters</p><p className="mt-2 text-sm leading-6 text-zinc-400">{selected.reason}</p></div><div className="mt-4 rounded-2xl border border-white/[.07] bg-black/10 p-4"><p className="text-xs text-zinc-600">Recommended action</p><p className="mt-2 text-sm font-medium">{selected.action}</p><div className="mt-3 flex items-center justify-between text-xs text-zinc-600"><span>Evidence type</span><span className="text-zinc-300">{selected.evidence}</span></div></div><button onClick={() => setCompleted((items) => items.includes(selected.name) ? items : [...items, selected.name])} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-zinc-900 hover:bg-cyan-50">{completed.includes(selected.name) ? <><CheckCircle2 size={16} /> Action recorded</> : <>Start this action <ArrowRight size={16} /></>}</button><p className="mt-3 text-center text-xs text-zinc-600">Completing actions will become evidence for your roadmap and readiness.</p></aside>
+          <span className="text-xs text-zinc-600">
+            Skill Intelligence
+          </span>
+        </header>
+
+        {/* HERO */}
+
+        <section className="py-9">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+
+            <div>
+              <div className="flex items-center gap-2 text-xs font-medium text-violet-300">
+                <Sparkles size={14} />
+                Career Intelligence
+              </div>
+
+              <h1 className="mt-3 max-w-3xl text-3xl font-semibold tracking-[-.035em] sm:text-4xl">
+                Build the skills that move you toward{" "}
+                <span className="text-violet-300">
+                  {state.targetRole}
+                </span>
+                .
+              </h1>
+
+              <p className="mt-4 max-w-2xl text-sm leading-6 text-zinc-500">
+                CareerPilot compares your current skill
+                signals with the requirements of your
+                target career and identifies where your
+                next effort will have the most impact.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-white/[.07] bg-white/[.025] px-5 py-4">
+              <p className="text-[10px] uppercase tracking-[.18em] text-zinc-600">
+                Target career
+              </p>
+
+              <p className="mt-2 font-medium">
+                {state.targetRole}
+              </p>
+
+              <p className="mt-1 text-xs text-zinc-600">
+                {state.geography}
+                {" · "}
+                {state.workMode}
+              </p>
+            </div>
+          </div>
         </section>
 
-        <section className="mt-6 rounded-3xl border border-white/[.07] bg-white/[.025] p-6"><p className="text-[10px] uppercase tracking-[.18em] text-zinc-600">Intelligence layer</p><h2 className="mt-1 text-lg font-semibold">Why the skill map is connected</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-500">CareerPilot is no longer treating Skills Gap as an isolated screen. Your selected role, geography, work mode and skills come from shared Career State, which can later feed learning, projects, resumes and job matching.</p></section>
+        {/* TOP METRICS */}
+
+        <section className="grid gap-4 md:grid-cols-4">
+
+          <Metric
+            icon={Gauge}
+            label="Skill readiness"
+            value={`${skillReadiness}%`}
+            description="Against role requirements"
+          />
+
+          <Metric
+            icon={Target}
+            label="Career readiness"
+            value={`${careerReadiness}%`}
+            description="Across current evidence"
+          />
+
+          <Metric
+            icon={CircleAlert}
+            label="Skill gaps"
+            value={`${gapCount}`}
+            description={`${highPriorityGaps} high priority`}
+          />
+
+          <Metric
+            icon={ShieldCheck}
+            label="Verified"
+            value={`${verifiedCount}/${analysis.length}`}
+            description="Skills with evidence"
+          />
+
+        </section>
+
+        {/* MAIN */}
+
+        <section className="mt-6 grid gap-6 lg:grid-cols-[1.45fr_.85fr]">
+
+          {/* SKILL MAP */}
+
+          <div className="rounded-3xl border border-white/[.07] bg-white/[.025] p-5 sm:p-6">
+
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+
+              <div>
+                <p className="text-[10px] uppercase tracking-[.18em] text-zinc-600">
+                  Skill map
+                </p>
+
+                <h2 className="mt-1 text-lg font-semibold">
+                  Your career skill profile
+                </h2>
+
+                <p className="mt-1 text-xs text-zinc-600">
+                  Current signal compared with the target
+                  level for {state.targetRole}.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {(
+                  [
+                    "All",
+                    "High",
+                    "Medium",
+                    "Verified",
+                  ] as Filter[]
+                ).map((item) => (
+                  <button
+                    key={item}
+                    onClick={() =>
+                      setFilter(item)
+                    }
+                    className={`rounded-full px-3 py-1.5 text-xs transition ${
+                      filter === item
+                        ? "bg-white text-black"
+                        : "border border-white/[.08] bg-white/[.025] text-zinc-500 hover:bg-white/[.06]"
+                    }`}
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
+
+            </div>
+
+            <div className="mt-6 space-y-2">
+
+              {filtered.map((skill) => {
+                const active =
+                  selected?.skill === skill.skill;
+
+                const progress =
+                  skill.targetLevel > 0
+                    ? Math.min(
+                        Math.round(
+                          (skill.currentLevel /
+                            skill.targetLevel) *
+                            100,
+                        ),
+                        100,
+                      )
+                    : 0;
+
+                return (
+                  <button
+                    key={skill.skill}
+                    onClick={() =>
+                      setSelectedSkill(
+                        skill.skill,
+                      )
+                    }
+                    className={`w-full rounded-2xl border p-4 text-left transition ${
+                      active
+                        ? "border-violet-400/25 bg-violet-400/[.05]"
+                        : "border-white/[.05] bg-black/10 hover:border-white/[.1] hover:bg-white/[.025]"
+                    }`}
+                  >
+
+                    <div className="flex items-start gap-4">
+
+                      <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/[.05] text-zinc-500">
+                        <Layers3 size={16} />
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+
+                        <div className="flex flex-wrap items-center gap-2">
+
+                          <span className="text-sm font-medium">
+                            {skill.skill}
+                          </span>
+
+                          <Importance
+                            value={
+                              skill.importance
+                            }
+                          />
+
+                          {skill.verified && (
+                            <span className="flex items-center gap-1 rounded-full bg-emerald-400/10 px-2 py-0.5 text-[10px] text-emerald-300">
+                              <Check size={10} />
+                              Verified
+                            </span>
+                          )}
+
+                        </div>
+
+                        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/[.06]">
+
+                          <div
+                            className={`h-full rounded-full transition-all ${
+                              skill.verified
+                                ? "bg-emerald-400"
+                                : "bg-gradient-to-r from-violet-500 to-cyan-400"
+                            }`}
+                            style={{
+                              width: `${progress}%`,
+                            }}
+                          />
+
+                        </div>
+
+                        <div className="mt-2 flex justify-between text-[10px] text-zinc-600">
+
+                          <span>
+                            Current{" "}
+                            {skill.currentLevel}%
+                          </span>
+
+                          <span>
+                            Target{" "}
+                            {skill.targetLevel}%
+                          </span>
+
+                        </div>
+
+                      </div>
+
+                      <div className="hidden text-right sm:block">
+
+                        <p className="text-sm font-semibold">
+                          {skill.gap > 0
+                            ? `-${skill.gap}`
+                            : "Ready"}
+                        </p>
+
+                        <p className="text-[10px] uppercase tracking-wider text-zinc-700">
+                          {skill.gap > 0
+                            ? "gap"
+                            : "level"}
+                        </p>
+
+                      </div>
+
+                    </div>
+
+                  </button>
+                );
+              })}
+
+            </div>
+
+          </div>
+
+          {/* SELECTED SKILL */}
+
+          {selected && (
+            <aside className="rounded-3xl border border-violet-400/15 bg-gradient-to-b from-violet-500/[.09] via-white/[.025] to-white/[.015] p-6">
+
+              <div className="flex items-start justify-between gap-4">
+
+                <div>
+                  <p className="text-[10px] uppercase tracking-[.18em] text-violet-300">
+                    Selected skill
+                  </p>
+
+                  <h2 className="mt-2 text-2xl font-semibold">
+                    {selected.skill}
+                  </h2>
+                </div>
+
+                <Importance
+                  value={
+                    selected.importance
+                  }
+                />
+
+              </div>
+
+              {/* LEVEL */}
+
+              <div className="mt-7 rounded-2xl border border-white/[.07] bg-black/10 p-4">
+
+                <div className="flex items-end justify-between">
+
+                  <div>
+                    <p className="text-xs text-zinc-600">
+                      Current signal
+                    </p>
+
+                    <p className="mt-1 text-3xl font-semibold">
+                      {selected.currentLevel}%
+                    </p>
+                  </div>
+
+                  <div className="text-right">
+                    <p className="text-xs text-zinc-600">
+                      Target
+                    </p>
+
+                    <p className="mt-1 text-lg font-medium text-zinc-300">
+                      {selected.targetLevel}%
+                    </p>
+                  </div>
+
+                </div>
+
+                <div className="mt-4 h-2 rounded-full bg-white/[.06]">
+
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-violet-500 to-cyan-400"
+                    style={{
+                      width: `${Math.min(
+                        (selected.currentLevel /
+                          selected.targetLevel) *
+                          100,
+                        100,
+                      )}%`,
+                    }}
+                  />
+
+                </div>
+
+                <div className="mt-3 flex justify-between text-[10px] text-zinc-600">
+
+                  <span>
+                    Current
+                  </span>
+
+                  <span>
+                    {selected.gap > 0
+                      ? `${selected.gap} points to close`
+                      : "Target reached"}
+                  </span>
+
+                </div>
+
+              </div>
+
+              {/* WHY */}
+
+              <div className="mt-4 rounded-2xl border border-white/[.07] bg-black/10 p-4">
+
+                <p className="text-[10px] uppercase tracking-[.16em] text-zinc-700">
+                  Why this matters
+                </p>
+
+                <p className="mt-2 text-sm leading-6 text-zinc-400">
+                  {getSkillExplanation(
+                    selected.importance,
+                    selected.gap,
+                    selected.skill,
+                    state.targetRole,
+                  )}
+                </p>
+
+              </div>
+
+              {/* EVIDENCE */}
+
+              <div className="mt-4 grid grid-cols-2 gap-3">
+
+                <SmallStat
+                  label="Evidence"
+                  value={`${selected.evidenceCount}`}
+                  icon={FolderKanban}
+                />
+
+                <SmallStat
+                  label="Verified"
+                  value={
+                    selected.verified
+                      ? "Yes"
+                      : "No"
+                  }
+                  icon={ShieldCheck}
+                />
+
+              </div>
+
+              {/* ACTION */}
+
+              <div className="mt-4 rounded-2xl border border-cyan-300/10 bg-cyan-300/[.035] p-4">
+
+                <p className="text-[10px] uppercase tracking-[.16em] text-cyan-300">
+                  Recommended next step
+                </p>
+
+                <p className="mt-2 text-sm font-medium">
+                  {getSkillAction(
+                    selected.skill,
+                    selected.gap,
+                    selected.verified,
+                  )}
+                </p>
+
+                <p className="mt-2 text-xs leading-5 text-zinc-600">
+                  CareerPilot will eventually connect this
+                  action directly to Learning, Assessments
+                  and Projects.
+                </p>
+
+              </div>
+
+              <button
+                onClick={() => {
+                  if (
+                    !recordedActions.includes(
+                      selected.skill,
+                    )
+                  ) {
+                    setRecordedActions(
+                      (current) => [
+                        ...current,
+                        selected.skill,
+                      ],
+                    );
+                  }
+                }}
+                className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-zinc-100"
+              >
+                {recordedActions.includes(
+                  selected.skill,
+                ) ? (
+                  <>
+                    <CheckCircle2 size={16} />
+                    Action recorded
+                  </>
+                ) : (
+                  <>
+                    Record as next action
+                    <ArrowRight size={16} />
+                  </>
+                )}
+              </button>
+
+            </aside>
+          )}
+
+        </section>
+
+        {/* NEXT BEST ACTION */}
+
+        <section className="mt-6 rounded-3xl border border-cyan-300/10 bg-gradient-to-r from-cyan-300/[.05] to-violet-500/[.04] p-5 sm:p-6">
+
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+
+            <div className="flex items-start gap-4">
+
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cyan-300/10 text-cyan-300">
+                <Sparkles size={18} />
+              </div>
+
+              <div>
+                <p className="text-[10px] uppercase tracking-[.18em] text-cyan-300">
+                  CareerPilot recommendation
+                </p>
+
+                <h2 className="mt-1 text-lg font-semibold">
+                  {nextAction.title}
+                </h2>
+
+                <p className="mt-1 max-w-2xl text-xs leading-5 text-zinc-600">
+                  {nextAction.description}
+                </p>
+              </div>
+
+            </div>
+
+            <div className="shrink-0">
+
+              <a
+                href={nextAction.destination}
+                className="flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-xs font-semibold text-black"
+              >
+                Take action
+                <ArrowRight size={14} />
+              </a>
+
+              <p className="mt-2 text-center text-[10px] text-zinc-700">
+                {nextAction.estimatedMinutes} min
+                {" · "}
+                {nextAction.impact}% impact
+              </p>
+
+            </div>
+
+          </div>
+
+        </section>
+
+        {/* EXPLANATION */}
+
+        <section className="mt-6 rounded-3xl border border-white/[.07] bg-white/[.025] p-5 sm:p-6">
+
+          <div className="flex items-start gap-4">
+
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/[.05] text-zinc-500">
+              <BrainCircuit size={17} />
+            </div>
+
+            <div>
+
+              <p className="text-[10px] uppercase tracking-[.18em] text-zinc-700">
+                How CareerPilot thinks
+              </p>
+
+              <h2 className="mt-1 text-sm font-semibold">
+                Skills are only one part of career readiness.
+              </h2>
+
+              <p className="mt-2 max-w-3xl text-xs leading-5 text-zinc-600">
+                CareerPilot separates your skill signal from
+                your evidence. A strong self-reported skill
+                is not treated the same as a skill demonstrated
+                through a project, assessment, work experience
+                or other evidence. As we build the Learning,
+                Project and Verification engines, these signals
+                will continuously update your Career State.
+              </p>
+
+            </div>
+
+          </div>
+
+        </section>
+
+        {/* FOOTER */}
+
+        <footer className="flex justify-between border-t border-white/[.06] py-7 text-[10px] text-zinc-700">
+
+          <span>
+            CareerPilot · Discover. Build. Prove. Move.
+          </span>
+
+          <span className="hidden sm:block">
+            Skill intelligence is generated from your
+            current Career State.
+          </span>
+
+        </footer>
+
       </div>
     </main>
   );
 }
 
-function Stat({ label, value, sub, icon }: { label: string; value: string; sub: string; icon: React.ReactNode }) { return <div className="rounded-2xl border border-white/[.07] bg-white/[.025] p-5"><div className="flex items-center gap-2 text-zinc-600">{icon}<span className="text-xs">{label}</span></div><div className="mt-2 text-2xl font-semibold">{value}</div><div className="mt-1 text-xs text-zinc-600">{sub}</div></div>; }
+/* -------------------------------- */
+/* Supporting components             */
+/* -------------------------------- */
 
-function Priority({ priority }: { priority: SkillAnalysis["priority"] }) { const styles = { Critical: "bg-rose-400/10 text-rose-300", High: "bg-amber-300/10 text-amber-300", Medium: "bg-slate-400/10 text-slate-400" }; return <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${styles[priority]}`}>{priority}</span>; }
+function NoCareerGoal() {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-[#08090d] px-6 text-zinc-100">
+
+      <div className="max-w-lg">
+
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-black">
+          <Target size={18} />
+        </div>
+
+        <p className="mt-6 text-xs font-medium uppercase tracking-[.18em] text-violet-300">
+          Skill Intelligence
+        </p>
+
+        <h1 className="mt-3 text-4xl font-semibold tracking-[-.035em]">
+          Give CareerPilot a destination first.
+        </h1>
+
+        <p className="mt-4 text-sm leading-6 text-zinc-500">
+          Your target career gives CareerPilot the
+          requirements it needs to calculate meaningful
+          skill gaps and recommendations.
+        </p>
+
+        <a
+          href="/career-goal"
+          className="mt-7 inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-black"
+        >
+          Set career goal
+          <ArrowRight size={16} />
+        </a>
+
+      </div>
+
+    </main>
+  );
+}
+
+function Metric({
+  icon: Icon,
+  label,
+  value,
+  description,
+}: {
+  icon: typeof Gauge;
+  label: string;
+  value: string;
+  description: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/[.07] bg-white/[.025] p-5">
+
+      <div className="flex items-center gap-2 text-zinc-600">
+        <Icon size={15} />
+
+        <span className="text-[10px] uppercase tracking-wider">
+          {label}
+        </span>
+      </div>
+
+      <p className="mt-3 text-2xl font-semibold">
+        {value}
+      </p>
+
+      <p className="mt-1 text-xs text-zinc-600">
+        {description}
+      </p>
+
+    </div>
+  );
+}
+
+function SmallStat({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof FolderKanban;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-xl border border-white/[.06] bg-black/10 p-3">
+
+      <div className="flex items-center gap-2 text-zinc-700">
+        <Icon size={12} />
+
+        <span className="text-[10px] uppercase tracking-wider">
+          {label}
+        </span>
+      </div>
+
+      <p className="mt-2 text-sm font-medium text-zinc-300">
+        {value}
+      </p>
+
+    </div>
+  );
+}
+
+function Importance({
+  value,
+}: {
+  value: "high" | "medium" | "low";
+}) {
+  const styles = {
+    high: "bg-amber-300/10 text-amber-300",
+    medium: "bg-slate-400/10 text-slate-400",
+    low: "bg-zinc-400/10 text-zinc-500",
+  };
+
+  return (
+    <span
+      className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${styles[value]}`}
+    >
+      {value}
+    </span>
+  );
+}
+
+function getSkillExplanation(
+  importance: "high" | "medium" | "low",
+  gap: number,
+  skill: string,
+  role: string,
+) {
+  if (gap <= 0) {
+    return `${skill} is currently at or above the target signal for ${role}. The next opportunity is to strengthen the evidence behind this skill.`;
+  }
+
+  if (importance === "high") {
+    return `${skill} is a high-priority requirement for ${role}. Closing this ${gap}-point gap can materially strengthen your role readiness.`;
+  }
+
+  if (importance === "medium") {
+    return `${skill} supports your ${role} profile. The current ${gap}-point gap is worth addressing after the higher-priority requirements.`;
+  }
+
+  return `${skill} is useful supporting knowledge for ${role}. It should be developed after the core requirements are stronger.`;
+}
+
+function getSkillAction(
+  skill: string,
+  gap: number,
+  verified: boolean,
+) {
+  if (verified && gap <= 0) {
+    return `Strengthen your ${skill} evidence with another practical project or work example.`;
+  }
+
+  if (gap > 20) {
+    return `Build your ${skill} foundation, then prove it through a practical project or assessment.`;
+  }
+
+  if (gap > 0) {
+    return `Close the remaining ${skill} gap and complete a practical assessment to verify it.`;
+  }
+
+  return `Create evidence that demonstrates your ${skill} ability.`;
+}
