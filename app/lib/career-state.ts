@@ -34,24 +34,19 @@ export type NextBestAction = {
 };
 
 export type CareerState = {
-  version: number;
-  targetRole: string; careerStage: string; experience: string;
+  version: number; targetRole: string; careerStage: string; experience: string;
   workMode: string; geography: string; skills: string[]; goalSet: boolean;
   profile: { name: string; currentLocation: string; education: string; currentRole: string };
-  primaryGoal: CareerGoal | null;
-  skillRecords: SkillRecord[];
-  evidence: EvidenceRecord[];
+  primaryGoal: CareerGoal | null; skillRecords: SkillRecord[]; evidence: EvidenceRecord[];
   roadmap: RoadmapNode[];
   progress: { completedActions: number; totalActions: number; completedProjects: number; verifiedSkills: number; applications: number; interviews: number; xp: number };
-  lastActionId: string | null;
-  updatedAt: string;
+  lastActionId: string | null; updatedAt: string;
 };
 
 export const defaultCareerState: CareerState = {
-  version: 2, targetRole: "Data Analyst", careerStage: "Explorer",
-  experience: "Early career", workMode: "Hybrid / Remote",
-  geography: "India + International", skills: ["SQL", "Excel", "Python", "Power BI"],
-  goalSet: false, profile: { name: "", currentLocation: "", education: "", currentRole: "" },
+  version: 2, targetRole: "", careerStage: "Explorer", experience: "",
+  workMode: "", geography: "", skills: [], goalSet: false,
+  profile: { name: "", currentLocation: "", education: "", currentRole: "" },
   primaryGoal: null, skillRecords: [], evidence: [], roadmap: [],
   progress: { completedActions: 0, totalActions: 0, completedProjects: 0, verifiedSkills: 0, applications: 0, interviews: 0, xp: 0 },
   lastActionId: null, updatedAt: new Date(0).toISOString(),
@@ -65,8 +60,16 @@ export function loadCareerState(): CareerState {
   try {
     const raw = window.localStorage.getItem(KEY) ?? window.localStorage.getItem(LEGACY);
     if (!raw) return defaultCareerState;
-    return { ...defaultCareerState, ...JSON.parse(raw) };
-  } catch { return defaultCareerState; }
+    const parsed = JSON.parse(raw);
+    return {
+      ...defaultCareerState,
+      ...parsed,
+      profile: { ...defaultCareerState.profile, ...(parsed.profile ?? {}) },
+      progress: { ...defaultCareerState.progress, ...(parsed.progress ?? {}) },
+    };
+  } catch {
+    return defaultCareerState;
+  }
 }
 
 export function saveCareerState(state: CareerState) {
