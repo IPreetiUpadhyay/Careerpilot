@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft, CalendarDays, FileText, MessageSquare, Plus, Search, Target, X } from "lucide-react";
 import { ApplicationRecord, ApplicationStage, CareerState, loadCareerState, saveCareerState } from "../lib/career-state";
 
@@ -11,9 +11,11 @@ const STAGES: {id:ApplicationStage;label:string}[]=[
 export default function ApplicationsPage(){
  const [state,setState]=useState<CareerState|null>(null); const [query,setQuery]=useState(""); const [selected,setSelected]=useState<ApplicationRecord|null>(null);
  useEffect(()=>{const r=()=>setState(loadCareerState());r();window.addEventListener("careerpilot-state-updated",r);return()=>window.removeEventListener("careerpilot-state-updated",r)},[]);
- if(!state)return <Loading/>; const current=state; const apps=current.applications??[];
- const filtered=useMemo(()=>apps.filter(a=>!query||(`${a.title} ${a.company} ${a.location}`).toLowerCase().includes(query.toLowerCase())),[apps,query]);
- function addFromOpportunity(){const saved=current.opportunities.filter(o=>o.saved);const existing=new Set(apps.map(a=>a.opportunityId));const fresh=saved.filter(o=>!existing.has(o.id));if(!fresh.length)return;const now=new Date().toISOString();const added=fresh.map(o=>({id:"app-"+o.id,opportunityId:o.id,title:o.title,company:o.company,location:o.location,stage:"ready-to-apply" as const,createdAt:now,updatedAt:now}));const n={...current,applications:[...apps,...added]};saveCareerState(n);setState(n);}
+ if(!state)return <Loading/>; const current=state;
+ const apps=Array.isArray(current.applications) ? current.applications.filter(a=>a && typeof a==="object" && typeof a.id==="string") : [];
+ const opportunities=Array.isArray(current.opportunities) ? current.opportunities.filter(o=>o && typeof o==="object" && typeof o.id==="string") : [];
+ const filtered=apps.filter(a=>!query||(`${a.title??""} ${a.company??""} ${a.location??""}`).toLowerCase().includes(query.toLowerCase()));
+ function addFromOpportunity(){const saved=opportunities.filter(o=>o.saved);const existing=new Set(apps.map(a=>a.opportunityId));const fresh=saved.filter(o=>!existing.has(o.id));if(!fresh.length)return;const now=new Date().toISOString();const added=fresh.map(o=>({id:"app-"+o.id,opportunityId:o.id,title:o.title,company:o.company,location:o.location,stage:"ready-to-apply" as const,createdAt:now,updatedAt:now}));const n={...current,applications:[...apps,...added]};saveCareerState(n);setState(n);}
  function update(id:string,patch:Partial<ApplicationRecord>){const next=apps.map(a=>a.id===id?{...a,...patch,updatedAt:new Date().toISOString()}:a);const n={...current,applications:next};saveCareerState(n);setState(n);setSelected(next.find(a=>a.id===id)??null);}
  const counts=Object.fromEntries(STAGES.map(s=>[s.id,apps.filter(a=>a.stage===s.id).length]));
  return <main className="min-h-screen bg-[#08090d] text-zinc-100"><div className="mx-auto max-w-[1400px] px-5 py-7 sm:px-8 lg:px-10">
