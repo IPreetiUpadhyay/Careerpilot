@@ -21,16 +21,10 @@ type QuestionType = "single" | "multi" | "text";
 type Data = {
   goal: Goal;
   currentRole: string;
-  targetRole: string;
   interests: string;
   education: string;
   skills: string[];
   currentLocation: string;
-  scope: Scope;
-  preferredLocations: string[];
-  internationalLocations: string[];
-  workModes: string[];
-  relocation: string;
 };
 
 type Question = {
@@ -46,16 +40,10 @@ type Question = {
 const defaultData: Data = {
   goal: "",
   currentRole: "",
-  targetRole: "",
   interests: "",
   education: "",
   skills: [],
   currentLocation: "",
-  scope: "",
-  preferredLocations: [],
-  internationalLocations: [],
-  workModes: [],
-  relocation: "",
 };
 
 const roleSkills: Record<string, string[]> = {
@@ -127,52 +115,6 @@ const careerRoles = [
   "Digital Marketer",
   "Something else",
   "I'm not sure yet",
-];
-
-const indiaLocations = [
-  "Delhi NCR",
-  "Mumbai",
-  "Bengaluru",
-  "Hyderabad",
-  "Pune",
-  "Chennai",
-  "Kolkata",
-  "Ahmedabad",
-  "Remote India",
-];
-
-const internationalLocations = [
-  "United States",
-  "United Kingdom",
-  "Canada",
-  "Australia",
-  "Germany",
-  "UAE",
-  "Singapore",
-  "Europe",
-  "Anywhere",
-];
-
-const goalOptions = [
-  "Find my first job",
-  "Grow in my current career",
-  "Switch to a new career",
-  "Find international opportunities",
-  "I'm not sure yet",
-];
-
-const scopeOptions = [
-  "India",
-  "International",
-  "India + International",
-  "Remote worldwide",
-];
-
-const workModeOptions = [
-  "Remote",
-  "Hybrid",
-  "On-site",
-  "Flexible",
 ];
 
 function mapGoal(value: string): Goal {
@@ -250,16 +192,6 @@ export default function CareerDNA() {
         placeholder: "e.g. Technology, business, data, design...",
         required: true,
       });
-    } else {
-      result.push({
-        id: "targetRole",
-        type: "single",
-        title: "What kind of career are you looking for?",
-        description:
-          "You can change this later. This simply gives CareerPilot a starting direction.",
-        options: careerRoles,
-        required: true,
-      });
     }
 
     if (data.goal === "first-job" || data.goal === "unsure") {
@@ -274,17 +206,14 @@ export default function CareerDNA() {
       });
     }
 
-    if (
-      data.targetRole &&
-      roleSkills[data.targetRole]
-    ) {
+    if (data.skills.length === 0) {
       result.push({
         id: "skills",
         type: "multi",
         title: "Which of these skills do you already have?",
         description:
           "Select everything you're comfortable with. You can select multiple.",
-        options: roleSkills[data.targetRole],
+        options: ["SQL", "Excel", "Python", "Data Analysis", "Communication", "Problem Solving", "Programming", "Design"],
         required: false,
       });
     }
@@ -294,73 +223,10 @@ export default function CareerDNA() {
       type: "text",
       title: "Where are you currently based?",
       description:
-        "We'll use this to personalize nearby and relevant opportunities.",
+        "This is part of your professional profile, so CareerPilot can understand your starting point.",
       placeholder: "e.g. Delhi, India",
       required: true,
     });
-
-    result.push({
-      id: "scope",
-      type: "single",
-      title: "Where do you want to find opportunities?",
-      description:
-        "Choose the opportunity market you want CareerPilot to search.",
-      options: scopeOptions,
-      required: true,
-    });
-
-    if (data.scope === "india" || data.scope === "both") {
-      result.push({
-        id: "preferredLocations",
-        type: "multi",
-        title: "Which locations in India interest you?",
-        description:
-          "Select all locations you'd consider working in.",
-        options: indiaLocations,
-        required: false,
-      });
-    }
-
-    if (
-      data.scope === "international" ||
-      data.scope === "both" ||
-      data.scope === "remote"
-    ) {
-      result.push({
-        id: "internationalLocations",
-        type: "multi",
-        title: "Which international markets interest you?",
-        description:
-          "Select all that you'd consider.",
-        options: internationalLocations,
-        required: false,
-      });
-    }
-
-    result.push({
-      id: "workModes",
-      type: "multi",
-      title: "How would you prefer to work?",
-      description:
-        "Select all work arrangements you're open to.",
-      options: workModeOptions,
-      required: true,
-    });
-
-    if (
-      data.scope === "international" ||
-      data.scope === "both"
-    ) {
-      result.push({
-        id: "relocation",
-        type: "single",
-        title: "Would you consider relocating?",
-        description:
-          "This helps us filter international opportunities.",
-        options: ["Yes", "Maybe", "No"],
-        required: true,
-      });
-    }
 
     return result;
   }, [data.goal, data.targetRole, data.scope]);
@@ -496,31 +362,6 @@ export default function CareerDNA() {
 
       const current = loadCareerState();
 
-      const goalType: CareerGoalType =
-        data.goal === "first-job" ? "first-job" :
-        data.goal === "grow" ? "grow" :
-        data.goal === "switch" ? "switch" :
-        data.goal === "international" ? "international" : "explore";
-
-      const scope: OpportunityScope =
-        data.scope === "india" ? "india" :
-        data.scope === "international" ? "international" :
-        data.scope === "both" ? "both" :
-        data.scope === "remote" ? "remote-worldwide" : "india";
-
-      const workModes: WorkMode[] = data.workModes.map((mode) =>
-        mode === "Remote" ? "remote" :
-        mode === "Hybrid" ? "hybrid" :
-        mode === "On-site" ? "onsite" : "flexible"
-      );
-
-      const role =
-        data.targetRole &&
-        data.targetRole !== "Something else" &&
-        data.targetRole !== "I'm not sure yet"
-          ? data.targetRole
-          : current.targetRole;
-
       const next: CareerState = {
         ...current,
         profile: {
@@ -534,27 +375,6 @@ export default function CareerDNA() {
             ? "Working professional"
             : "Early career",
         skills: data.skills,
-        targetRole: role,
-        workMode: data.workModes.join(" · "),
-        geography:
-          data.scope === "india" ? "India" :
-          data.scope === "international" ? "International" :
-          data.scope === "both" ? "India + International" :
-          "Remote worldwide",
-        primaryGoal: {
-          id: "primary-career-goal",
-          role,
-          type: goalType,
-          seniority: data.goal === "grow" ? "Mid-level" : "Entry-level",
-          scope,
-          workModes,
-          preferredLocations: [
-            ...data.preferredLocations,
-            ...data.internationalLocations,
-          ],
-          active: true,
-          createdAt: current.primaryGoal?.createdAt ?? new Date().toISOString(),
-        },
       };
 
       saveCareerState(next);
@@ -597,16 +417,15 @@ export default function CareerDNA() {
               </h1>
 
               <p className="mt-5 max-w-lg text-[17px] leading-7 text-neutral-500">
-                We have enough information to start personalizing
-                your career journey, opportunities, skills and next
-                steps.
+                We have captured the professional context CareerPilot needs
+                to understand where you're starting from.
               </p>
 
               <button
                 onClick={goToCareerGoal}
                 className="mt-10 inline-flex h-12 items-center rounded-xl bg-[#171717] px-6 text-[15px] font-medium text-white transition hover:bg-black"
               >
-                Continue to Career Goal
+                Define my Career Goal
                 <span className="ml-2">→</span>
               </button>
             </div>
