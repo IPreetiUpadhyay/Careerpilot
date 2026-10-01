@@ -48,9 +48,9 @@ const nav = [
   ["Roadmap", Compass, "/dashboard"],
   ["Skills", Gauge, "/skills-gap"],
   ["Learning", BookOpen, "/learning"],
-  ["Projects", FolderKanban, "/dashboard"],
+  ["Projects", FolderKanban, "/projects"],
   ["Resume", FileText, "/resume-intelligence"],
-  ["Jobs", BriefcaseBusiness, "/dashboard"],
+  ["Jobs", BriefcaseBusiness, "/jobs"],
   ["Applications", CheckCircle2, "/dashboard"],
   ["Interview Arena", MessageCircle, "/dashboard"],
 ] as const;
