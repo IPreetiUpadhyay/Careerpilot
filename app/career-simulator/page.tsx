@@ -1,5 +1,7 @@
 "use client";
 
+// Deployment check: Career Simulator build validation.
+
 import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, BriefcaseBusiness, CheckCircle2, ChevronRight, Compass, Gauge, Globe2, RotateCcw, Sparkles, Target, TrendingUp } from "lucide-react";
 import { CareerState, loadCareerState } from "../lib/career-state";
