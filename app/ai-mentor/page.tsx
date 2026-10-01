@@ -156,10 +156,10 @@ function Route({ icon: Icon, label, href }: { icon: typeof Target; label: string
   return <a href={href} className="flex items-center gap-3 rounded-xl border border-white/[.05] px-3 py-2.5 text-xs text-zinc-500 hover:text-white"><Icon size={14}/>{label}<ArrowRight size={13} className="ml-auto"/></a>;
 }
 
-function buildMentorReply(question: string, state: CareerState, a: { readiness: number; gaps: { name: string; gap: number }[]; projects: number; applications: number; interviews: number }) {
+function buildMentorReply(question: string, state: CareerState, a: { readiness: number; gaps: { skill: string; gap: number }[]; projects: number; applications: number; interviews: number }) {
   const q = question.toLowerCase();
   const role = state.targetRole || "your target role";
-  const gapNames = a.gaps.slice(0, 3).map(g => g.name);
+  const gapNames = a.gaps.slice(0, 3).map(g => g.skill);
 
   if (!state.goalSet || !state.targetRole) return "Your first priority is defining a target role. Once that is set, CareerPilot can map the required skills, identify gaps and build a focused path instead of giving you generic career advice.";
   if (q.includes("focus") || q.includes("next")) {
