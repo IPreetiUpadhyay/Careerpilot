@@ -1,30 +1,16 @@
 "use client";
 
-// Career DNA type-safe state mapping
-
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CareerGoalType, OpportunityScope, WorkMode, CareerState, loadCareerState, saveCareerState } from "../lib/career-state";
+import { CareerState, loadCareerState, saveCareerState } from "../lib/career-state";
 
-type Goal =
-  | "first-job"
-  | "grow"
-  | "switch"
-  | "international"
-  | "unsure"
-  | "";
-
-type Scope = "india" | "international" | "both" | "remote" | "";
-
-type QuestionType = "single" | "multi" | "text";
+type QuestionType = "text" | "multi";
 
 type Data = {
-  goal: Goal;
   currentRole: string;
   interests: string;
   education: string;
   skills: string[];
-  currentLocation: string;
 };
 
 type Question = {
@@ -38,80 +24,11 @@ type Question = {
 };
 
 const defaultData: Data = {
-  goal: "",
   currentRole: "",
   interests: "",
   education: "",
   skills: [],
-  currentLocation: "",
 };
-
-const roleSkills: Record<string, string[]> = {
-  "Data Analyst": [
-    "SQL",
-    "Excel",
-    "Power BI",
-    "Tableau",
-    "Python",
-    "Statistics",
-  ],
-  "Business Analyst": [
-    "Excel",
-    "SQL",
-    "Power BI",
-    "Requirements Analysis",
-    "Process Mapping",
-    "Communication",
-  ],
-  "Software Developer": [
-    "JavaScript",
-    "Python",
-    "Java",
-    "React",
-    "SQL",
-    "Git",
-  ],
-  "Data Scientist": [
-    "Python",
-    "SQL",
-    "Statistics",
-    "Machine Learning",
-    "Pandas",
-    "Data Visualization",
-  ],
-  "Product Manager": [
-    "Product Strategy",
-    "User Research",
-    "Analytics",
-    "Roadmapping",
-    "SQL",
-    "Communication",
-  ],
-  "UI/UX Designer": [
-    "Figma",
-    "UX Research",
-    "Wireframing",
-    "Prototyping",
-    "UI Design",
-    "Design Systems",
-  ],
-  "Digital Marketer": [
-    "SEO",
-    "Content",
-    "Google Ads",
-    "Social Media",
-    "Analytics",
-    "Copywriting",
-  ],
-};
-
-function mapGoal(value: string): Goal {
-  if (value === "Find my first job") return "first-job";
-  if (value === "Grow in my current career") return "grow";
-  if (value === "Switch to a new career") return "switch";
-  if (value === "Find international opportunities") return "international";
-  return "unsure";
-}
 
 export default function CareerDNA() {
   const router = useRouter();
@@ -130,6 +47,7 @@ export default function CareerDNA() {
         setData({
           ...defaultData,
           ...parsed,
+          skills: Array.isArray(parsed.skills) ? parsed.skills : [],
         });
       }
     } catch {
@@ -140,76 +58,57 @@ export default function CareerDNA() {
   const questions = useMemo<Question[]>(() => {
     const result: Question[] = [
       {
-        id: "goal",
-        type: "single",
-        title: "What brings you to CareerPilot?",
-        description:
-          "Choose what best describes what you need right now.",
-        options: goalOptions,
-        required: true,
-      },
-    ];
-
-    if (data.goal === "grow" || data.goal === "switch") {
-      result.push({
         id: "currentRole",
         type: "text",
         title: "What do you currently do?",
         description:
-          "Tell us your current role so we can understand your starting point.",
-        placeholder: "e.g. Marketing Executive",
+          "Tell us where you are professionally right now. If you're a student or looking for your first job, that's completely fine.",
+        placeholder: "e.g. BCA student, Data Analyst, Marketing Executive",
         required: true,
-      });
-    }
-
-    if (data.goal === "unsure") {
-      result.push({
-        id: "interests",
-        type: "text",
-        title: "What are you interested in?",
-        description:
-          "Tell us about the kind of work, subjects, or industries you enjoy.",
-        placeholder: "e.g. Technology, business, data, design...",
-        required: true,
-      });
-    }
-
-    if (data.goal === "first-job" || data.goal === "unsure") {
-      result.push({
+      },
+      {
         id: "education",
         type: "text",
         title: "What's your education background?",
         description:
-          "This helps us understand your current qualification level.",
-        placeholder: "e.g. BCA, B.Com, 12th, Diploma...",
+          "Add your highest qualification or the education you're currently pursuing.",
+        placeholder: "e.g. BCA, B.Com, MBA, Diploma, 12th",
         required: true,
-      });
-    }
+      },
+      {
+        id: "interests",
+        type: "text",
+        title: "What kind of work interests you?",
+        description:
+          "Tell CareerPilot about the fields, subjects, problems, or types of work you enjoy.",
+        placeholder: "e.g. data, technology, finance, design, marketing",
+        required: true,
+      },
+    ];
 
     if (data.skills.length === 0) {
       result.push({
         id: "skills",
         type: "multi",
-        title: "Which of these skills do you already have?",
+        title: "Which skills do you already have?",
         description:
-          "Select everything you're comfortable with. You can select multiple.",
-        options: ["SQL", "Excel", "Python", "Data Analysis", "Communication", "Problem Solving", "Programming", "Design"],
+          "Select the skills you're comfortable with. CareerPilot will use these as your starting point, not as a final assessment.",
+        options: [
+          "SQL",
+          "Excel",
+          "Python",
+          "Data Analysis",
+          "Communication",
+          "Problem Solving",
+          "Programming",
+          "Design",
+        ],
         required: false,
       });
     }
 
-    result.push({
-      id: "currentLocation",
-      type: "text",
-      title: "Where are you currently based?",
-      description:
-        "This is part of your professional profile, so CareerPilot can understand your starting point.",
-      placeholder: "e.g. Delhi, India",
-      required: true,
-    });
-
     return result;
-  }, [data.goal]);
+  }, [data.skills.length]);
 
   const currentQuestion = questions[step];
   const isLastQuestion = step === questions.length - 1;
@@ -231,38 +130,12 @@ export default function CareerDNA() {
   };
 
   const updateValue = (value: string | string[]) => {
+    if (!currentQuestion) return;
+
     setData((previous) => ({
       ...previous,
       [currentQuestion.id]: value,
     }));
-  };
-
-  const selectSingle = (option: string) => {
-    if (currentQuestion.id === "goal") {
-      setData((previous) => ({
-        ...previous,
-        goal: mapGoal(option),
-      }));
-
-      if (!isLastQuestion) {
-        setTimeout(() => {
-          setStep((previous) => previous + 1);
-        }, 160);
-      }
-
-      return;
-    }
-
-    updateValue(option);
-
-    // Important:
-    // The FINAL question does not automatically advance.
-    // It shows the Continue button instead.
-    if (!isLastQuestion) {
-      setTimeout(() => {
-        setStep((previous) => previous + 1);
-      }, 160);
-    }
   };
 
   const toggleMulti = (option: string) => {
@@ -278,14 +151,12 @@ export default function CareerDNA() {
   };
 
   const next = () => {
-    if (!hasValue() && currentQuestion.required) return;
+    if (!currentQuestion) return;
+    if (currentQuestion.required && !hasValue()) return;
 
     if (isLastQuestion) {
       try {
-        localStorage.setItem(
-          "careerpilot-dna",
-          JSON.stringify(data),
-        );
+        localStorage.setItem("careerpilot-dna", JSON.stringify(data));
       } catch {
         // Ignore storage errors
       }
@@ -312,22 +183,22 @@ export default function CareerDNA() {
 
       const current = loadCareerState();
 
-      const next: CareerState = {
+      const nextState: CareerState = {
         ...current,
         profile: {
           ...current.profile,
-          currentLocation: data.currentLocation,
           education: data.education,
           currentRole: data.currentRole,
         },
-        experience:
-          data.goal === "grow" || data.goal === "switch"
-            ? "Working professional"
-            : "Early career",
         skills: data.skills,
+        experience:
+          current.experience ||
+          (data.currentRole.toLowerCase().includes("student")
+            ? "Early career"
+            : "Working professional"),
       };
 
-      saveCareerState(next);
+      saveCareerState(nextState);
     } catch {
       // Ignore storage errors
     }
@@ -347,9 +218,7 @@ export default function CareerDNA() {
               CareerPilot
             </button>
 
-            <span className="text-sm text-neutral-500">
-              Complete
-            </span>
+            <span className="text-sm text-neutral-500">Complete</span>
           </header>
 
           <div className="h-1 w-full overflow-hidden rounded-full bg-neutral-200">
@@ -368,7 +237,7 @@ export default function CareerDNA() {
 
               <p className="mt-5 max-w-lg text-[17px] leading-7 text-neutral-500">
                 We have captured the professional context CareerPilot needs
-                to understand where you're starting from.
+                to understand your starting point.
               </p>
 
               <button
@@ -437,9 +306,7 @@ export default function CareerDNA() {
                 <input
                   type="text"
                   value={typeof value === "string" ? value : ""}
-                  onChange={(event) =>
-                    updateValue(event.target.value)
-                  }
+                  onChange={(event) => updateValue(event.target.value)}
                   placeholder={currentQuestion.placeholder}
                   className="h-14 w-full rounded-xl border border-neutral-200 bg-white px-4 text-[16px] outline-none transition placeholder:text-neutral-400 focus:border-neutral-400"
                   autoFocus
@@ -447,60 +314,29 @@ export default function CareerDNA() {
               </div>
             )}
 
-            {currentQuestion.type === "single" &&
-              currentQuestion.options && (
-                <div className="mt-9 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {currentQuestion.options.map((option) => {
-                    let selected = false;
+            {currentQuestion.type === "multi" && currentQuestion.options && (
+              <div className="mt-9 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {currentQuestion.options.map((option) => {
+                  const selected =
+                    Array.isArray(value) && value.includes(option);
 
-                    selected =
-                      currentQuestion.id === "goal"
-                        ? data.goal === mapGoal(option)
-                        : false;
-
-                    return (
-                      <button
-                        key={option}
-                        type="button"
-                        onClick={() => selectSingle(option)}
-                        className={`min-h-12 rounded-xl border px-5 text-left text-[16px] transition ${
-                          selected
-                            ? "border-[#171717] bg-[#171717] text-white"
-                            : "border-neutral-200 bg-white hover:border-neutral-400"
-                        }`}
-                      >
-                        {option}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-
-            {currentQuestion.type === "multi" &&
-              currentQuestion.options && (
-                <div className="mt-9 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {currentQuestion.options.map((option) => {
-                    const selected =
-                      Array.isArray(value) &&
-                      value.includes(option);
-
-                    return (
-                      <button
-                        key={option}
-                        type="button"
-                        onClick={() => toggleMulti(option)}
-                        className={`min-h-11 rounded-xl border px-4 text-left text-[15px] transition ${
-                          selected
-                            ? "border-[#171717] bg-[#171717] text-white"
-                            : "border-neutral-200 bg-white hover:border-neutral-400"
-                        }`}
-                      >
-                        {option}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
+                  return (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => toggleMulti(option)}
+                      className={`min-h-11 rounded-xl border px-4 text-left text-[15px] transition ${
+                        selected
+                          ? "border-[#171717] bg-[#171717] text-white"
+                          : "border-neutral-200 bg-white hover:border-neutral-400"
+                      }`}
+                    >
+                      {option}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </section>
 
@@ -514,29 +350,19 @@ export default function CareerDNA() {
               Back
             </button>
 
-            {(
-              currentQuestion.type === "text" ||
-              currentQuestion.type === "multi" ||
-              isLastQuestion
-            ) && (
-              <button
-                type="button"
-                onClick={next}
-                disabled={
-                  currentQuestion.required && !hasValue()
-                }
-                className={`inline-flex h-11 items-center rounded-xl px-5 text-[15px] font-medium transition ${
-                  currentQuestion.required && !hasValue()
-                    ? "cursor-not-allowed bg-neutral-200 text-neutral-400"
-                    : "bg-[#171717] text-white hover:bg-black"
-                }`}
-              >
-                {isLastQuestion
-                  ? "Finish Career DNA"
-                  : "Continue"}
-                <span className="ml-2">→</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={next}
+              disabled={currentQuestion.required && !hasValue()}
+              className={`inline-flex h-11 items-center rounded-xl px-5 text-[15px] font-medium transition ${
+                currentQuestion.required && !hasValue()
+                  ? "cursor-not-allowed bg-neutral-200 text-neutral-400"
+                  : "bg-[#171717] text-white hover:bg-black"
+              }`}
+            >
+              {isLastQuestion ? "Finish Career DNA" : "Continue"}
+              <span className="ml-2">→</span>
+            </button>
           </div>
         </footer>
       </div>
