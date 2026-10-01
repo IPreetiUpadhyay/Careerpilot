@@ -53,6 +53,7 @@ const nav = [
   ["Jobs", BriefcaseBusiness, "/jobs"],
   ["Applications", CheckCircle2, "/dashboard"],
   ["Interview Arena", MessageCircle, "/dashboard"],
+  ["Career Edge", TrendingUp, "/career-edge"],
 ] as const;
 
 export default function Dashboard() {
