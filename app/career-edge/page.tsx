@@ -59,7 +59,11 @@ export default function CareerEdgePage() {
   function complete(item:EdgeItem){
     if(!state || completed.has(item.id))return;
     const currentState = state;
-    const next: CareerState = { ...currentState, version: currentState.version ?? 2, targetRole: currentState.targetRole ?? "", careerStage: currentState.careerStage ?? "Explorer", experience: currentState.experience ?? "", workMode: currentState.workMode ?? "", geography: currentState.geography ?? "", skills: currentState.skills ?? [], goalSet: currentState.goalSet ?? false, profile: { ...(currentState.profile ?? {}), name: currentState.profile?.name ?? "", currentLocation: currentState.profile?.currentLocation ?? "", education: currentState.profile?.education ?? "", currentRole: currentState.profile?.currentRole ?? "" }, primaryGoal: currentState.primaryGoal ?? null, skillRecords: currentState.skillRecords ?? [], evidence: currentState.evidence ?? [], projects: currentState.projects ?? [], interviews: currentState.interviews ?? [], opportunities: currentState.opportunities ?? [], applications: currentState.applications ?? [], roadmap: currentState.roadmap ?? [], progress: { completedActions: 0, totalActions: 0, completedProjects: 0, verifiedSkills: 0, applications: 0, interviews: 0, xp: 0, ...(currentState.progress ?? {}) }, careerEdge: [...(currentState.careerEdge ?? []), { id: item.id, completedAt: new Date().toISOString() }], lastActionId: currentState.lastActionId ?? null, updatedAt: new Date().toISOString() };
+    const next: CareerState = {
+      ...currentState,
+      careerEdge: [...(currentState.careerEdge ?? []), { id: item.id, completedAt: new Date().toISOString() }],
+      progress: { ...currentState.progress, xp: currentState.progress.xp + 25 },
+    };
     saveCareerState(next); setState(next);
   }
 
