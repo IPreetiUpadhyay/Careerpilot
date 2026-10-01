@@ -1,5 +1,7 @@
 "use client";
 
+// Deployment trigger: AI Mentor type fix is ready.
+
 import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, BriefcaseBusiness, FileText, FolderKanban, Gauge, MessageCircle, Send, Sparkles, Target, TrendingUp, Bot } from "lucide-react";
 import { CareerState, loadCareerState } from "../lib/career-state";
