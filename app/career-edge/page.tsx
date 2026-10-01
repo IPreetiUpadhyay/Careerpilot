@@ -58,7 +58,7 @@ export default function CareerEdgePage() {
 
   function complete(item:EdgeItem){
     if(completed.has(item.id))return;
-    const next:CareerState={...state,careerEdge:[...state.careerEdge,{id:item.id,completedAt:new Date().toISOString()}],progress:{...state.progress,xp:state.progress.xp+25}};
+    const next: CareerState = { ...state, version: state.version ?? 2, careerEdge: [...state.careerEdge, { id: item.id, completedAt: new Date().toISOString() }], progress: { ...state.progress, xp: state.progress.xp + 25 } };
     saveCareerState(next); setState(next);
   }
 
