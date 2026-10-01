@@ -18,8 +18,10 @@ const JOBS:Job[]=[
 export default function JobsPage(){
 const [state,setState]=useState<CareerState|null>(null); const [query,setQuery]=useState(""); const [mode,setMode]=useState("all"); const [scope,setScope]=useState("all"); const [selected,setSelected]=useState<Job|null>(null);
 useEffect(()=>{const r=()=>setState(loadCareerState());r();window.addEventListener("careerpilot-state-updated",r);return()=>window.removeEventListener("careerpilot-state-updated",r)},[]);
-if(!state)return <Loading/>; const current=state; const gaps=getSkillGapAnalysis(syncSkillRecords(current));
+const current=state;
+const gaps=current ? getSkillGapAnalysis(syncSkillRecords(current)) : [];
 const filtered=useMemo(()=>JOBS.filter(j=>(!query||[j.title,j.company,j.location,...j.skills].join(" ").toLowerCase().includes(query.toLowerCase()))&&(mode==="all"||j.workMode===mode)&&(scope==="all"||j.scope===scope)),[query,mode,scope]);
+if(!current)return <Loading/>;
 function match(j:Job){const target=new Set(gaps.map(g=>g.skill.toLowerCase()));const matched=j.skills.filter(s=>target.has(s.toLowerCase())).length;const evidence=new Set(current.evidence.flatMap(e=>e.skillNames.map(s=>s.toLowerCase())));const backed=j.skills.filter(s=>evidence.has(s.toLowerCase())).length;return Math.round((matched/j.skills.length)*70+(backed/j.skills.length)*30)}
 function save(j:Job){const exists=current.opportunities.find(x=>x.id===j.id);const opportunities=exists?current.opportunities.map(x=>x.id===j.id?{...x,saved:!x.saved}:x):[...current.opportunities,{...j,saved:true}];const n={...current,opportunities};saveCareerState(n);setState(n)}
 return <main className="min-h-screen bg-[#08090d] text-zinc-100"><div className="mx-auto max-w-[1280px] px-5 py-7 sm:px-8 lg:px-10">
