@@ -50,9 +50,10 @@ const nav = [
   ["Projects", FolderKanban, "/projects"],
   ["Resume", FileText, "/resume-intelligence"],
   ["Jobs", BriefcaseBusiness, "/jobs"],
-  ["Applications", CheckCircle2, "/dashboard"],
-  ["Interview Arena", MessageCircle, "/dashboard"],
+  ["Applications", CheckCircle2, "/applications"],
+  ["Interview Arena", MessageCircle, "/interview-arena"],
   ["Career Edge", TrendingUp, "/career-edge"],
+  ["AI Mentor", Sparkles, "/ai-mentor"],
 ] as const;
 
 export default function Dashboard() {
