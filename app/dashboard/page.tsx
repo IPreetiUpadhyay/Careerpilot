@@ -35,7 +35,6 @@ import {
 
 import {
   calculateCareerReadiness,
-  getNextBestAction,
   getSkillGapAnalysis,
   buildRoadmap,
   syncSkillRecords,
@@ -118,8 +117,6 @@ function DashboardContent({
 }) {
   const readiness = calculateCareerReadiness(state);
 
-  const action = getNextBestAction(state);
-
   const skillAnalysis = getSkillGapAnalysis(state);
 
   const roadmap = buildRoadmap(state);
@@ -145,15 +142,8 @@ function DashboardContent({
     (item) => item.type === "project",
   ).length;
 
-  const name =
-    state.profile.name?.trim() ||
-    state.careerStage ||
-    "Explorer";
-
   const greetingName =
-    name.length > 20
-      ? name.split(" ")[0]
-      : name;
+    state.profile.name?.trim() || "there";
 
   const topGaps = [...skillAnalysis]
     .filter((skill) => skill.gap > 0)
@@ -329,9 +319,6 @@ function DashboardContent({
               <button className="relative p-2.5 text-zinc-500">
                 <Bell size={18} />
 
-                {action && (
-                  <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-violet-400" />
-                )}
               </button>
 
               <button className="p-2.5 text-zinc-500">
@@ -382,43 +369,8 @@ function DashboardContent({
               </div>
             </div>
 
-            {/* NEXT ACTION + READINESS */}
-            <div className="grid gap-4 xl:grid-cols-[1.45fr_.8fr_.8fr]">
-              <section className="rounded-3xl border border-violet-400/15 bg-gradient-to-br from-violet-500/[.12] via-white/[.035] to-cyan-400/[.05] p-6">
-                <div className="flex items-center gap-2 text-xs font-medium text-violet-200">
-                  <Target size={15} />
-                  Next best action
-                </div>
-
-                <h2 className="mt-4 text-2xl font-semibold tracking-tight sm:text-[28px]">
-                  {action.title}
-                </h2>
-
-                <p className="mt-2 max-w-xl text-sm leading-6 text-zinc-500">
-                  {action.description}
-                </p>
-
-                <div className="mt-6 flex flex-wrap items-center gap-3">
-                  <a
-                    href={action.destination}
-                    className="flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-xs font-semibold text-black"
-                  >
-                    Take action
-                    <ChevronRight size={15} />
-                  </a>
-
-                  <span className="text-xs text-zinc-600">
-                    ~{action.estimatedMinutes} min
-                    {" · "}
-                    {action.impact}% impact
-                  </span>
-                </div>
-
-                <p className="mt-5 max-w-xl text-[11px] leading-5 text-zinc-600">
-                  Why this? {action.reason}
-                </p>
-              </section>
-
+            {/* READINESS */}
+            <div className="grid gap-4 md:grid-cols-2">
               <Stat
                 label="Career readiness"
                 value={`${readiness}%`}
@@ -444,9 +396,7 @@ function DashboardContent({
                 progress={
                   totalSkills
                     ? Math.round(
-                        (verifiedSkills /
-                          totalSkills) *
-                          100,
+                        (verifiedSkills / totalSkills) * 100,
                       )
                     : 0
                 }
