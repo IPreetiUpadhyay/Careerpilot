@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CareerState, loadCareerState, saveCareerState } from "../lib/career-state";
 
-type QuestionType = "text" | "multi";
+type QuestionType = "single" | "multi";
 
 type Data = {
   currentRole: string;
@@ -30,6 +30,64 @@ const defaultData: Data = {
   skills: [],
 };
 
+const roleOptions = [
+  "Student",
+  "Working professional",
+  "Looking for my first job",
+  "Career switcher",
+  "Freelancer",
+  "Self-employed",
+  "Between jobs",
+];
+
+const educationOptions = [
+  "10th / Secondary",
+  "12th / Higher Secondary",
+  "Diploma",
+  "BCA",
+  "B.Tech / BE",
+  "B.Com",
+  "BBA",
+  "BA",
+  "B.Sc",
+  "MBA",
+  "MCA",
+  "Other degree",
+];
+
+const interestOptions = [
+  "Data & Analytics",
+  "Technology & Software",
+  "AI & Machine Learning",
+  "Finance & Business",
+  "Marketing & Growth",
+  "Product & Strategy",
+  "Design & Creative",
+  "Sales & Customer Success",
+  "Healthcare",
+  "Education",
+  "Operations",
+  "Consulting",
+];
+
+const skillOptions = [
+  "SQL",
+  "Excel",
+  "Python",
+  "Data Analysis",
+  "Power BI",
+  "Communication",
+  "Problem Solving",
+  "Programming",
+  "Design",
+  "Project Management",
+  "Marketing",
+  "Research",
+];
+
+const isPreset = (value: string, options: string[]) =>
+  options.includes(value);
+
 export default function CareerDNA() {
   const router = useRouter();
 
@@ -48,6 +106,7 @@ export default function CareerDNA() {
           ...defaultData,
           ...parsed,
           skills: Array.isArray(parsed.skills) ? parsed.skills : [],
+          interests: typeof parsed.interests === "string" ? parsed.interests : "",
         });
       }
     } catch {
@@ -55,60 +114,50 @@ export default function CareerDNA() {
     }
   }, []);
 
-  const questions = useMemo<Question[]>(() => {
-    const result: Question[] = [
+  const questions = useMemo<Question[]>(
+    () => [
       {
         id: "currentRole",
-        type: "text",
+        type: "single",
         title: "What do you currently do?",
         description:
-          "Tell us where you are professionally right now. If you're a student or looking for your first job, that's completely fine.",
-        placeholder: "e.g. BCA student, Data Analyst, Marketing Executive",
+          "Tell us where you are professionally right now. You can choose an option or enter your specific role.",
+        options: roleOptions,
+        placeholder: "Or enter your current role, e.g. Data Analyst",
         required: true,
       },
       {
         id: "education",
-        type: "text",
+        type: "single",
         title: "What's your education background?",
         description:
-          "Add your highest qualification or the education you're currently pursuing.",
-        placeholder: "e.g. BCA, B.Com, MBA, Diploma, 12th",
+          "Choose your highest qualification or the education you're currently pursuing.",
+        options: educationOptions,
+        placeholder: "Or enter your qualification",
         required: true,
       },
       {
         id: "interests",
-        type: "text",
+        type: "single",
         title: "What kind of work interests you?",
         description:
-          "Tell CareerPilot about the fields, subjects, problems, or types of work you enjoy.",
-        placeholder: "e.g. data, technology, finance, design, marketing",
+          "Choose the field or domain you want CareerPilot to understand better. You can also enter something more specific.",
+        options: interestOptions,
+        placeholder: "Or enter a specific field or domain",
         required: true,
       },
-    ];
-
-    if (data.skills.length === 0) {
-      result.push({
+      {
         id: "skills",
         type: "multi",
         title: "Which skills do you already have?",
         description:
-          "Select the skills you're comfortable with. CareerPilot will use these as your starting point, not as a final assessment.",
-        options: [
-          "SQL",
-          "Excel",
-          "Python",
-          "Data Analysis",
-          "Communication",
-          "Problem Solving",
-          "Programming",
-          "Design",
-        ],
+          "Select everything you already know. These are starting signals, not a final assessment.",
+        options: skillOptions,
         required: false,
-      });
-    }
-
-    return result;
-  }, [data.skills.length]);
+      },
+    ],
+    []
+  );
 
   const currentQuestion = questions[step];
   const isLastQuestion = step === questions.length - 1;
@@ -208,7 +257,7 @@ export default function CareerDNA() {
 
   if (complete) {
     return (
-      <main className="min-h-[100svh] bg-[#fafafa] text-[#171717]">
+      <main className="min-h-[100svh] bg-[#07080d] text-[#f7f7fb]">
         <div className="mx-auto flex min-h-[100svh] max-w-2xl flex-col px-6 sm:px-8">
           <header className="flex items-center justify-between py-6">
             <button
@@ -218,16 +267,16 @@ export default function CareerDNA() {
               CareerPilot
             </button>
 
-            <span className="text-sm text-neutral-500">Complete</span>
+            <span className="text-sm text-[#9a9cab]">Complete</span>
           </header>
 
-          <div className="h-1 w-full overflow-hidden rounded-full bg-neutral-200">
-            <div className="h-full w-full rounded-full bg-[#171717]" />
+          <div className="h-1 w-full overflow-hidden rounded-full bg-white/[0.08]">
+            <div className="h-full w-full rounded-full bg-[#8b5cf6]" />
           </div>
 
           <section className="flex flex-1 flex-col justify-center py-16">
             <div className="max-w-xl">
-              <p className="mb-4 text-[15px] font-medium text-neutral-500">
+              <p className="mb-4 text-[15px] font-medium text-[#9a9cab]">
                 Career DNA
               </p>
 
@@ -235,14 +284,14 @@ export default function CareerDNA() {
                 Your Career DNA is ready.
               </h1>
 
-              <p className="mt-5 max-w-lg text-[17px] leading-7 text-neutral-500">
+              <p className="mt-5 max-w-lg text-[17px] leading-7 text-[#9a9cab]">
                 We have captured the professional context CareerPilot needs
                 to understand your starting point.
               </p>
 
               <button
                 onClick={goToCareerGoal}
-                className="mt-10 inline-flex h-12 items-center rounded-xl bg-[#171717] px-6 text-[15px] font-medium text-white transition hover:bg-black"
+                className="mt-10 inline-flex h-12 items-center rounded-xl bg-white px-6 text-[15px] font-medium text-[#171717] transition hover:bg-[#f0eef5]"
               >
                 Define my Career Goal
                 <span className="ml-2">→</span>
@@ -254,14 +303,19 @@ export default function CareerDNA() {
     );
   }
 
-  if (!currentQuestion) {
-    return null;
-  }
+  if (!currentQuestion) return null;
 
   const value = getValue();
+  const customValue =
+    currentQuestion.type === "single" &&
+    typeof value === "string" &&
+    currentQuestion.options &&
+    !isPreset(value, currentQuestion.options)
+      ? value
+      : "";
 
   return (
-    <main className="min-h-[100svh] bg-[#fafafa] text-[#171717]">
+    <main className="min-h-[100svh] bg-[#07080d] text-[#f7f7fb]">
       <div className="mx-auto flex min-h-[100svh] max-w-2xl flex-col px-6 sm:px-8">
         <header className="flex items-center justify-between py-6">
           <button
@@ -271,23 +325,23 @@ export default function CareerDNA() {
             CareerPilot
           </button>
 
-          <span className="text-sm text-neutral-500">
+          <span className="text-sm text-[#9a9cab]">
             {step + 1} of {questions.length}
           </span>
         </header>
 
-        <div className="h-1 w-full overflow-hidden rounded-full bg-neutral-200">
+        <div className="h-1 w-full overflow-hidden rounded-full bg-white/[0.08]">
           <div
-            className="h-full rounded-full bg-[#171717] transition-all duration-300"
+            className="h-full rounded-full bg-[#8b5cf6] transition-all duration-300"
             style={{
               width: `${((step + 1) / questions.length) * 100}%`,
             }}
           />
         </div>
 
-        <section className="flex-1 py-24 sm:py-28">
+        <section className="flex-1 py-20 sm:py-24">
           <div className="mx-auto max-w-xl">
-            <p className="mb-5 text-[15px] font-medium text-neutral-500">
+            <p className="mb-5 text-[15px] font-medium text-[#9a9cab]">
               Career DNA
             </p>
 
@@ -296,22 +350,44 @@ export default function CareerDNA() {
             </h1>
 
             {currentQuestion.description && (
-              <p className="mt-4 max-w-lg text-[16px] leading-6 text-neutral-500">
+              <p className="mt-4 max-w-lg text-[16px] leading-6 text-[#9a9cab]">
                 {currentQuestion.description}
               </p>
             )}
 
-            {currentQuestion.type === "text" && (
-              <div className="mt-8">
-                <input
-                  type="text"
-                  value={typeof value === "string" ? value : ""}
-                  onChange={(event) => updateValue(event.target.value)}
-                  placeholder={currentQuestion.placeholder}
-                  className="h-14 w-full rounded-xl border border-neutral-200 bg-white px-4 text-[16px] outline-none transition placeholder:text-neutral-400 focus:border-neutral-400"
-                  autoFocus
-                />
-              </div>
+            {currentQuestion.type === "single" && currentQuestion.options && (
+              <>
+                <div className="mt-9 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {currentQuestion.options.map((option) => {
+                    const selected = value === option;
+
+                    return (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() => updateValue(option)}
+                        className={`min-h-12 rounded-xl border px-4 text-left text-[15px] transition ${
+                          selected
+                            ? "border-white bg-white text-[#171717]"
+                            : "border-white/[0.10] bg-white/[0.035] text-[#f7f7fb] hover:border-white/[0.25] hover:bg-white/[0.06]"
+                        }`}
+                      >
+                        {option}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-5">
+                  <input
+                    type="text"
+                    value={customValue}
+                    onChange={(event) => updateValue(event.target.value)}
+                    placeholder={currentQuestion.placeholder}
+                    className="h-14 w-full rounded-xl border border-white/[0.10] bg-white/[0.035] px-4 text-[16px] text-[#f7f7fb] outline-none transition placeholder:text-[#6f7180] focus:border-[#8b5cf6] focus:bg-white/[0.05]"
+                  />
+                </div>
+              </>
             )}
 
             {currentQuestion.type === "multi" && currentQuestion.options && (
@@ -325,10 +401,10 @@ export default function CareerDNA() {
                       key={option}
                       type="button"
                       onClick={() => toggleMulti(option)}
-                      className={`min-h-11 rounded-xl border px-4 text-left text-[15px] transition ${
+                      className={`min-h-12 rounded-xl border px-4 text-left text-[15px] transition ${
                         selected
-                          ? "border-[#171717] bg-[#171717] text-white"
-                          : "border-neutral-200 bg-white hover:border-neutral-400"
+                          ? "border-white bg-white text-[#171717]"
+                          : "border-white/[0.10] bg-white/[0.035] text-[#f7f7fb] hover:border-white/[0.25] hover:bg-white/[0.06]"
                       }`}
                     >
                       {option}
@@ -340,12 +416,12 @@ export default function CareerDNA() {
           </div>
         </section>
 
-        <footer className="border-t border-neutral-200 py-5">
+        <footer className="border-t border-white/[0.08] py-5">
           <div className="flex items-center justify-between">
             <button
               type="button"
               onClick={back}
-              className="text-[16px] text-neutral-700 transition hover:text-black"
+              className="text-[16px] text-[#9a9cab] transition hover:text-white"
             >
               Back
             </button>
@@ -356,8 +432,8 @@ export default function CareerDNA() {
               disabled={currentQuestion.required && !hasValue()}
               className={`inline-flex h-11 items-center rounded-xl px-5 text-[15px] font-medium transition ${
                 currentQuestion.required && !hasValue()
-                  ? "cursor-not-allowed bg-neutral-200 text-neutral-400"
-                  : "bg-[#171717] text-white hover:bg-black"
+                  ? "cursor-not-allowed bg-white/[0.08] text-[#555765]"
+                  : "bg-white text-[#171717] hover:bg-[#f0eef5]"
               }`}
             >
               {isLastQuestion ? "Finish Career DNA" : "Continue"}
