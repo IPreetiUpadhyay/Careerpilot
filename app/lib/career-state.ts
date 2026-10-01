@@ -14,6 +14,7 @@ export type ApplicationRecord = {
 };
 
 export type InterviewType = "hr" | "technical" | "behavioral" | "case";
+export type CareerEdgeProgress = { id: string; completedAt: string; };
 export type InterviewSession = { id: string; type: InterviewType; role: string; question: string; answer: string; scores: { relevance: number; structure: number; clarity: number; completeness: number; technical: number; overall: number }; feedback: string; createdAt: string; };
 
 export type ProjectRecord = { id: string; title: string; description: string; skills: string[]; difficulty: "Beginner" | "Intermediate" | "Advanced"; status: "saved" | "in-progress" | "completed"; milestones: { id: string; title: string; completed: boolean }[]; createdAt: string; completedAt?: string; };
@@ -55,6 +56,7 @@ export type CareerState = {
   primaryGoal: CareerGoal | null; skillRecords: SkillRecord[]; evidence: EvidenceRecord[]; projects: ProjectRecord[]; interviews: InterviewSession[]; opportunities: OpportunityRecord[]; applications: ApplicationRecord[];
   roadmap: RoadmapNode[];
   progress: { completedActions: number; totalActions: number; completedProjects: number; verifiedSkills: number; applications: number; interviews: number; xp: number };
+  careerEdge: CareerEdgeProgress[];
   lastActionId: string | null; updatedAt: string;
 };
 
@@ -62,7 +64,7 @@ export const defaultCareerState: CareerState = {
   version: 2, targetRole: "", careerStage: "Explorer", experience: "",
   workMode: "", geography: "", skills: [], goalSet: false,
   profile: { name: "", currentLocation: "", education: "", currentRole: "" },
-  primaryGoal: null, skillRecords: [], evidence: [], projects: [], interviews: [], opportunities: [], applications: [], roadmap: [],
+  primaryGoal: null, skillRecords: [], evidence: [], projects: [], interviews: [], opportunities: [], applications: [], roadmap: [], careerEdge: [],
   progress: { completedActions: 0, totalActions: 0, completedProjects: 0, verifiedSkills: 0, applications: 0, interviews: 0, xp: 0 },
   lastActionId: null, updatedAt: new Date(0).toISOString(),
 };
@@ -85,6 +87,7 @@ export function loadCareerState(): CareerState {
       interviews: Array.isArray(parsed.interviews) ? parsed.interviews : [],
       opportunities: Array.isArray(parsed.opportunities) ? parsed.opportunities : [],
       applications: Array.isArray(parsed.applications) ? parsed.applications : [],
+      careerEdge: Array.isArray(parsed.careerEdge) ? parsed.careerEdge : [],
     };
   } catch {
     return defaultCareerState;
