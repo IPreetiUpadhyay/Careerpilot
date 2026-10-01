@@ -52,7 +52,7 @@ export default function CareerEdgePage() {
 
   if(!state) return <main className="min-h-screen bg-[#08090d] grid place-items-center text-sm text-zinc-500">Loading Career Edge...</main>;
 
-  const completed=new Set(state.careerEdge);
+  const completed=new Set(state.careerEdge.map((entry) => entry.id));
   const role=state.targetRole||"your target role";
   const top=items[0];
 
