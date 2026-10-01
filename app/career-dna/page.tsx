@@ -4,7 +4,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CareerGoalType, OpportunityScope, WorkMode, loadCareerState, saveCareerState } from "../lib/career-state";
+import { CareerGoalType, OpportunityScope, WorkMode, CareerState, loadCareerState, saveCareerState } from "../lib/career-state";
 
 type Goal =
   | "first-job"
@@ -521,7 +521,7 @@ export default function CareerDNA() {
           ? data.targetRole
           : current.targetRole;
 
-      const next = {
+      const next: CareerState = {
         ...current,
         profile: {
           ...current.profile,
