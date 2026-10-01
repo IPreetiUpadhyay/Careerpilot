@@ -56,7 +56,11 @@ export default function ProgressPage() {
     const done = JSON.parse(window.localStorage.getItem(key) || "[]") as string[];
     if (done.includes(id)) return;
     window.localStorage.setItem(key, JSON.stringify([...done, id]));
-    saveCareerState({ ...state, progress: { ...state.progress, xp: state.progress.xp + reward } });
+    const nextState: CareerState = {
+      ...state,
+      progress: { ...state.progress, xp: state.progress.xp + reward },
+    };
+    saveCareerState(nextState);
   }
 
   return (
