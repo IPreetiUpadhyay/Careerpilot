@@ -105,32 +105,12 @@ const roleSkills: Record<string, string[]> = {
   ],
 };
 
-const careerRoles = [
-  "Data Analyst",
-  "Business Analyst",
-  "Software Developer",
-  "Data Scientist",
-  "Product Manager",
-  "UI/UX Designer",
-  "Digital Marketer",
-  "Something else",
-  "I'm not sure yet",
-];
-
 function mapGoal(value: string): Goal {
   if (value === "Find my first job") return "first-job";
   if (value === "Grow in my current career") return "grow";
   if (value === "Switch to a new career") return "switch";
   if (value === "Find international opportunities") return "international";
   return "unsure";
-}
-
-function mapScope(value: string): Scope {
-  if (value === "India") return "india";
-  if (value === "International") return "international";
-  if (value === "India + International") return "both";
-  if (value === "Remote worldwide") return "remote";
-  return "";
 }
 
 export default function CareerDNA() {
@@ -229,7 +209,7 @@ export default function CareerDNA() {
     });
 
     return result;
-  }, [data.goal, data.targetRole, data.scope]);
+  }, [data.goal]);
 
   const currentQuestion = questions[step];
   const isLastQuestion = step === questions.length - 1;
@@ -262,36 +242,6 @@ export default function CareerDNA() {
       setData((previous) => ({
         ...previous,
         goal: mapGoal(option),
-      }));
-
-      if (!isLastQuestion) {
-        setTimeout(() => {
-          setStep((previous) => previous + 1);
-        }, 160);
-      }
-
-      return;
-    }
-
-    if (currentQuestion.id === "targetRole") {
-      setData((previous) => ({
-        ...previous,
-        targetRole: option,
-      }));
-
-      if (!isLastQuestion) {
-        setTimeout(() => {
-          setStep((previous) => previous + 1);
-        }, 160);
-      }
-
-      return;
-    }
-
-    if (currentQuestion.id === "scope") {
-      setData((previous) => ({
-        ...previous,
-        scope: mapScope(option),
       }));
 
       if (!isLastQuestion) {
@@ -503,22 +453,10 @@ export default function CareerDNA() {
                   {currentQuestion.options.map((option) => {
                     let selected = false;
 
-                    if (currentQuestion.id === "goal") {
-                      selected =
-                        data.goal === mapGoal(option);
-                    } else if (
-                      currentQuestion.id === "targetRole"
-                    ) {
-                      selected =
-                        data.targetRole === option;
-                    } else if (
-                      currentQuestion.id === "scope"
-                    ) {
-                      selected =
-                        data.scope === mapScope(option);
-                    } else {
-                      selected = data.relocation === option;
-                    }
+                    selected =
+                      currentQuestion.id === "goal"
+                        ? data.goal === mapGoal(option)
+                        : false;
 
                     return (
                       <button
