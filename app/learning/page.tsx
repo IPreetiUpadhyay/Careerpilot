@@ -59,7 +59,25 @@ export default function LearningIntelligencePage() {
   const [completed, setCompleted] = useState<string[]>([]);
 
   useEffect(() => {
-    const refresh = () => setState(syncSkillRecords(loadCareerState()));
+    const refresh = async () => {
+      const local = syncSkillRecords(loadCareerState());
+      try {
+        const response = await fetch("/api/learning", { cache: "no-store" });
+        const result = await response.json();
+        if (response.ok && Array.isArray(result.skills)) {
+          const records = result.skills.map((item: any) => ({
+            name: item.name,
+            currentLevel: Number(item.readiness || 0),
+            targetLevel: 100,
+            confidence: item.verification_status === "unverified" ? 0 : 60,
+            evidence: [],
+            verified: item.verification_status !== "unverified",
+            lastUpdated: new Date().toISOString(),
+          }));
+          setState({ ...local, targetRole: result.targetRole || local.targetRole, skillRecords: records });
+        } else setState(local);
+      } catch { setState(local); }
+    };
     refresh();
     window.addEventListener("careerpilot-state-updated", refresh);
     return () => window.removeEventListener("careerpilot-state-updated", refresh);
