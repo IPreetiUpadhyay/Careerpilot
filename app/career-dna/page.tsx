@@ -1,499 +1,162 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CareerState, loadCareerState, saveCareerState } from "../lib/career-state";
-
-type QuestionType = "single" | "multi";
 
 type Data = {
+  currentStatus: string;
   currentRole: string;
-  interests: string;
+  yearsExperience: string;
   education: string;
+  educationDetails: string;
+  interests: string;
+  targetRole: string;
+  workMode: string;
+  geography: string;
+  internationalInterest: boolean;
+  remoteInterest: boolean;
   skills: string[];
+  bio: string;
 };
 
-type Question = {
-  id: string;
-  type: QuestionType;
-  title: string;
-  description?: string;
-  options?: string[];
-  placeholder?: string;
-  required?: boolean;
+const defaults: Data = {
+  currentStatus: "", currentRole: "", yearsExperience: "", education: "",
+  educationDetails: "", interests: "", targetRole: "", workMode: "",
+  geography: "", internationalInterest: false, remoteInterest: false, skills: [], bio: ""
 };
 
-const defaultData: Data = {
-  currentRole: "",
-  interests: "",
-  education: "",
-  skills: [],
-};
-
-const roleOptions = [
-  "Student",
-  "Working professional",
-  "Looking for my first job",
-  "Career switcher",
-  "Freelancer",
-  "Self-employed",
-  "Between jobs",
-];
-
-const educationOptions = [
-  "10th / Secondary",
-  "12th / Higher Secondary",
-  "Diploma",
-  "BCA",
-  "B.Tech / BE",
-  "B.Com",
-  "BBA",
-  "BA",
-  "B.Sc",
-  "MBA",
-  "MCA",
-  "Other degree",
-];
-
-const interestOptions = [
-  "Data & Analytics",
-  "Technology & Software",
-  "AI & Machine Learning",
-  "Finance & Business",
-  "Marketing & Growth",
-  "Product & Strategy",
-  "Design & Creative",
-  "Sales & Customer Success",
-  "Healthcare",
-  "Education",
-  "Operations",
-  "Consulting",
-];
-
-const skillOptions = [
-  "SQL",
-  "Excel",
-  "Python",
-  "Data Analysis",
-  "Power BI",
-  "Communication",
-  "Problem Solving",
-  "Programming",
-  "Design",
-  "Project Management",
-  "Marketing",
-  "Research",
-];
-
-const isPreset = (value: string, options: string[]) =>
-  options.includes(value);
+const statusOptions = ["Student","Working professional","Looking for my first job","Career switcher","Freelancer","Self-employed","Between jobs"];
+const educationOptions = ["10th / Secondary","12th / Higher Secondary","Diploma","BCA","B.Tech / BE","B.Com","BBA","BA","B.Sc","MBA","MCA","Other degree"];
+const interestOptions = ["Data & Analytics","Technology & Software","AI & Machine Learning","Finance & Business","Marketing & Growth","Product & Strategy","Design & Creative","Sales & Customer Success","Healthcare","Education","Operations","Consulting"];
+const skillOptions = ["SQL","Excel","Python","Data Analysis","Power BI","Communication","Problem Solving","Programming","Design","Project Management","Marketing","Research"];
 
 export default function CareerDNA() {
   const router = useRouter();
-
-  const [data, setData] = useState<Data>(defaultData);
-  const [step, setStep] = useState(0);
-  const [complete, setComplete] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState("");
+  const [data,setData] = useState<Data>(defaults);
+  const [loading,setLoading] = useState(true);
+  const [saving,setSaving] = useState(false);
+  const [saved,setSaved] = useState(false);
+  const [error,setError] = useState("");
+  const [step,setStep] = useState(0);
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function loadProfile() {
-      try {
-        const response = await fetch("/api/career-profile", {
-          method: "GET",
-          cache: "no-store",
-        });
-
-        if (!response.ok) {
-          if (response.status === 401) {
-            router.push("/auth");
-            return;
-          }
-          throw new Error("Could not load Career DNA.");
-        }
-
-        const result = await response.json();
-        const profile = result.profile;
-
-        if (!cancelled && profile) {
+    fetch("/api/career-profile",{cache:"no-store"})
+      .then(async r => {
+        if(r.status===401){ router.push("/auth"); return null; }
+        if(!r.ok) throw new Error("Could not load Career DNA.");
+        return r.json();
+      })
+      .then(result => {
+        if(result?.profile) {
+          const p=result.profile;
           setData({
-            currentRole: profile.currentRole ?? "",
-            interests: profile.interests ?? "",
-            education: profile.education ?? "",
-            skills: Array.isArray(profile.skills) ? profile.skills : [],
+            currentStatus:p.currentStatus??"", currentRole:p.currentRole??"",
+            yearsExperience:p.yearsExperience==null?"":String(p.yearsExperience),
+            education:p.education??"", educationDetails:p.educationDetails??"",
+            interests:p.interests??"", targetRole:p.targetRole??"",
+            workMode:p.workMode??"", geography:p.geography??"",
+            internationalInterest:Boolean(p.internationalInterest), remoteInterest:Boolean(p.remoteInterest),
+            skills:Array.isArray(p.skills)?p.skills:[], bio:p.bio??""
           });
         }
-      } catch {
-        if (!cancelled) setSaveError("Could not load your Career DNA.");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
+      })
+      .catch(e=>setError(e.message))
+      .finally(()=>setLoading(false));
+  },[router]);
 
-    loadProfile();
-    return () => {
-      cancelled = true;
-    };
-  }, [router]);
+  const set = (key:keyof Data,value:Data[keyof Data]) => setData(d=>({...d,[key]:value}));
+  const toggleSkill = (skill:string) => set("skills",data.skills.includes(skill)?data.skills.filter(s=>s!==skill):[...data.skills,skill]);
 
-  const questions = useMemo<Question[]>(
-    () => [
-      {
-        id: "currentRole",
-        type: "single",
-        title: "What do you currently do?",
-        description:
-          "Tell us where you are professionally right now. You can choose an option or enter your specific role.",
-        options: roleOptions,
-        placeholder: "Or enter your current role, e.g. Data Analyst",
-        required: true,
-      },
-      {
-        id: "education",
-        type: "single",
-        title: "What's your education background?",
-        description:
-          "Choose your highest qualification or the education you're currently pursuing.",
-        options: educationOptions,
-        placeholder: "Or enter your qualification",
-        required: true,
-      },
-      {
-        id: "interests",
-        type: "single",
-        title: "What kind of work interests you?",
-        description:
-          "Choose the field or domain you want CareerPilot to understand better. You can also enter something more specific.",
-        options: interestOptions,
-        placeholder: "Or enter a specific field or domain",
-        required: true,
-      },
-      {
-        id: "skills",
-        type: "multi",
-        title: "Which skills do you already have?",
-        description:
-          "Select everything you already know. These are starting signals, not a final assessment.",
-        options: skillOptions,
-        required: false,
-      },
-    ],
-    []
-  );
-
-  const currentQuestion = questions[step];
-  const isLastQuestion = step === questions.length - 1;
-
-  const getValue = () => {
-    if (!currentQuestion) return "";
-
-    return data[currentQuestion.id as keyof Data];
-  };
-
-  const hasValue = () => {
-    const value = getValue();
-
-    if (Array.isArray(value)) {
-      return value.length > 0;
-    }
-
-    return Boolean(value);
-  };
-
-  const updateValue = (value: string | string[]) => {
-    if (!currentQuestion) return;
-
-    setData((previous) => ({
-      ...previous,
-      [currentQuestion.id]: value,
-    }));
-  };
-
-  const toggleMulti = (option: string) => {
-    const current = Array.isArray(getValue())
-      ? (getValue() as string[])
-      : [];
-
-    if (current.includes(option)) {
-      updateValue(current.filter((item) => item !== option));
-    } else {
-      updateValue([...current, option]);
-    }
-  };
-
-  const next = () => {
-    if (!currentQuestion) return;
-    if (currentQuestion.required && !hasValue()) return;
-
-    if (isLastQuestion) {
-      void saveCareerDNA();
-      return;
-    }
-
-    setStep((previous) => previous + 1);
-  };
-
-  const saveCareerDNA = async () => {
-    setSaving(true);
-    setSaveError("");
-
+  async function save() {
+    setSaving(true); setError(""); setSaved(false);
     try {
-      const response = await fetch("/api/career-profile", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        const result = await response.json().catch(() => null);
-        throw new Error(result?.error || "Could not save Career DNA.");
-      }
-
-      setComplete(true);
-    } catch (error) {
-      setSaveError(error instanceof Error ? error.message : "Could not save Career DNA.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const back = () => {
-    if (step === 0) {
-      router.push("/");
-      return;
-    }
-
-    setStep((previous) => previous - 1);
-  };
-
-  const goToCareerGoal = () => {
-    const current = loadCareerState();
-
-    const nextState: CareerState = {
-      ...current,
-      profile: {
-        ...current.profile,
-        education: data.education,
-        currentRole: data.currentRole,
-      },
-      skills: data.skills,
-      experience:
-        current.experience ||
-        (data.currentRole.toLowerCase().includes("student")
-          ? "Early career"
-          : "Working professional"),
-    };
-
-    saveCareerState(nextState);
-    router.push("/career-goal");
-  };
-
-  if (loading) {
-    return (
-      <main className="min-h-[100svh] bg-[#07080d] text-[#f7f7fb]">
-        <div className="mx-auto flex min-h-[100svh] max-w-2xl items-center justify-center px-6">
-          <p className="text-sm text-[#9a9cab]">Loading your Career DNA...</p>
-        </div>
-      </main>
-    );
+      const r=await fetch("/api/career-profile",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});
+      const result=await r.json();
+      if(!r.ok) throw new Error(result.error||"Could not save Career DNA.");
+      setSaved(true);
+    } catch(e) { setError(e instanceof Error?e.message:"Could not save Career DNA."); }
+    finally { setSaving(false); }
   }
 
-  if (complete) {
-    return (
-      <main className="min-h-[100svh] bg-[#07080d] text-[#f7f7fb]">
-        <div className="mx-auto flex min-h-[100svh] max-w-2xl flex-col px-6 sm:px-8">
-          <header className="flex items-center justify-between py-6">
-            <button
-              onClick={() => router.push("/")}
-              className="text-[23px] font-bold tracking-[-0.04em]"
-            >
-              CareerPilot
-            </button>
+  const sections = ["Current Profile","Career Direction","Skills & Context"];
 
-            <span className="text-sm text-[#9a9cab]">Complete</span>
-          </header>
-
-          {saveError && (
-            <p className="mt-6 text-sm text-red-400">{saveError}</p>
-          )}
-
-          <div className="h-1 w-full overflow-hidden rounded-full bg-white/[0.08]">
-            <div className="h-full w-full rounded-full bg-[#8b5cf6]" />
-          </div>
-
-          <section className="flex flex-1 flex-col justify-center py-16">
-            <div className="max-w-xl">
-              <p className="mb-4 text-[15px] font-medium text-[#9a9cab]">
-                Career DNA
-              </p>
-
-              <h1 className="max-w-lg text-[42px] font-semibold leading-[1.04] tracking-[-0.045em] sm:text-[52px]">
-                Your Career DNA is ready.
-              </h1>
-
-              <p className="mt-5 max-w-lg text-[17px] leading-7 text-[#9a9cab]">
-                We have captured the professional context CareerPilot needs
-                to understand your starting point.
-              </p>
-
-              <button
-                disabled={saving}
-                onClick={goToCareerGoal}
-                className="mt-10 inline-flex h-12 items-center rounded-xl bg-white px-6 text-[15px] font-medium text-[#171717] transition hover:bg-[#f0eef5]"
-              >
-                {saving ? "Saving..." : "Define my Career Goal"}
-                <span className="ml-2">→</span>
-              </button>
-            </div>
-          </section>
-        </div>
-      </main>
-    );
-  }
-
-  if (!currentQuestion) return null;
-
-  const value = getValue();
-  const customValue =
-    currentQuestion.type === "single" &&
-    typeof value === "string" &&
-    currentQuestion.options &&
-    !isPreset(value, currentQuestion.options)
-      ? value
-      : "";
+  if(loading) return <main className="min-h-screen bg-[#07080d] text-white flex items-center justify-center text-sm text-[#9a9cab]">Loading your Career DNA...</main>;
 
   return (
-    <main className="min-h-[100svh] bg-[#07080d] text-[#f7f7fb]">
-      <div className="mx-auto flex min-h-[100svh] max-w-2xl flex-col px-6 sm:px-8">
-        <header className="flex items-center justify-between py-6">
-          <button
-            onClick={() => router.push("/")}
-            className="text-[23px] font-bold tracking-[-0.04em]"
-          >
-            CareerPilot
-          </button>
-
-          <span className="text-sm text-[#9a9cab]">
-            {step + 1} of {questions.length}
-          </span>
+    <main className="min-h-screen bg-[#07080d] text-[#f7f7fb]">
+      <div className="mx-auto max-w-4xl px-5 py-7 sm:px-8">
+        <header className="flex items-center justify-between">
+          <button onClick={()=>router.push("/dashboard")} className="text-xl font-bold tracking-[-.04em]">CareerPilot</button>
+          <button onClick={()=>router.push("/dashboard")} className="text-sm text-[#9a9cab] hover:text-white">Dashboard</button>
         </header>
 
-        <div className="h-1 w-full overflow-hidden rounded-full bg-white/[0.08]">
-          <div
-            className="h-full rounded-full bg-[#8b5cf6] transition-all duration-300"
-            style={{
-              width: `${((step + 1) / questions.length) * 100}%`,
-            }}
-          />
-        </div>
-
-        <section className="flex-1 py-20 sm:py-24">
-          <div className="mx-auto max-w-xl">
-            <p className="mb-5 text-[15px] font-medium text-[#9a9cab]">
-              Career DNA
-            </p>
-
-            <h1 className="max-w-xl text-[40px] font-semibold leading-[1.06] tracking-[-0.045em] sm:text-[50px]">
-              {currentQuestion.title}
-            </h1>
-
-            {currentQuestion.description && (
-              <p className="mt-4 max-w-lg text-[16px] leading-6 text-[#9a9cab]">
-                {currentQuestion.description}
-              </p>
-            )}
-
-            {currentQuestion.type === "single" && currentQuestion.options && (
-              <>
-                <div className="mt-9 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {currentQuestion.options.map((option) => {
-                    const selected = value === option;
-
-                    return (
-                      <button
-                        key={option}
-                        type="button"
-                        onClick={() => updateValue(option)}
-                        className={`min-h-12 rounded-xl border px-4 text-left text-[15px] transition ${
-                          selected
-                            ? "border-white bg-white text-[#171717]"
-                            : "border-white/[0.10] bg-white/[0.035] text-[#f7f7fb] hover:border-white/[0.25] hover:bg-white/[0.06]"
-                        }`}
-                      >
-                        {option}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div className="mt-5">
-                  <input
-                    type="text"
-                    value={customValue}
-                    onChange={(event) => updateValue(event.target.value)}
-                    placeholder={currentQuestion.placeholder}
-                    className="h-14 w-full rounded-xl border border-white/[0.10] bg-white/[0.035] px-4 text-[16px] text-[#f7f7fb] outline-none transition placeholder:text-[#6f7180] focus:border-[#8b5cf6] focus:bg-white/[0.05]"
-                  />
-                </div>
-              </>
-            )}
-
-            {currentQuestion.type === "multi" && currentQuestion.options && (
-              <div className="mt-9 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {currentQuestion.options.map((option) => {
-                  const selected =
-                    Array.isArray(value) && value.includes(option);
-
-                  return (
-                    <button
-                      key={option}
-                      type="button"
-                      onClick={() => toggleMulti(option)}
-                      className={`min-h-12 rounded-xl border px-4 text-left text-[15px] transition ${
-                        selected
-                          ? "border-white bg-white text-[#171717]"
-                          : "border-white/[0.10] bg-white/[0.035] text-[#f7f7fb] hover:border-white/[0.25] hover:bg-white/[0.06]"
-                      }`}
-                    >
-                      {option}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+        <section className="mt-12">
+          <p className="text-sm font-medium text-[#9a9cab]">Career DNA</p>
+          <div className="mt-2 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+            <div>
+              <h1 className="text-4xl font-semibold tracking-[-.045em] sm:text-5xl">Build your professional identity.</h1>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-[#9a9cab]">This becomes the foundation for your roadmap, skill gaps, job matches and career recommendations.</p>
+            </div>
+            <span className="text-xs text-[#6f7180]">{sections[step]} · {step+1}/3</span>
           </div>
+          <div className="mt-7 h-1 rounded-full bg-white/[.08]"><div className="h-full rounded-full bg-[#8b5cf6] transition-all" style={{width:`${((step+1)/3)*100}%`}} /></div>
         </section>
 
-        <footer className="border-t border-white/[0.08] py-5">
-          <div className="flex items-center justify-between">
-            <button
-              type="button"
-              onClick={back}
-              className="text-[16px] text-[#9a9cab] transition hover:text-white"
-            >
-              Back
-            </button>
+        <section className="mt-8 rounded-2xl border border-white/[.09] bg-white/[.025] p-5 sm:p-7">
+          {step===0 && <div className="grid gap-6 sm:grid-cols-2">
+            <Field label="Where are you right now?"><div className="grid gap-2">{statusOptions.map(o=><Choice key={o} selected={data.currentStatus===o} onClick={()=>set("currentStatus",o)}>{o}</Choice>)}</div></Field>
+            <Field label="Current role"><Input value={data.currentRole} onChange={v=>set("currentRole",v)} placeholder="e.g. Data Analyst, Student, Software Engineer" /></Field>
+            <Field label="Years of experience"><Input value={data.yearsExperience} onChange={v=>set("yearsExperience",v)} placeholder="0" type="number" /></Field>
+            <Field label="Highest / current education"><div className="grid gap-2 sm:grid-cols-2">{educationOptions.map(o=><Choice key={o} selected={data.education===o} onClick={()=>set("education",o)}>{o}</Choice>)}</div></Field>
+            <Field label="Education details" hint="Optional"><Input value={data.educationDetails} onChange={v=>set("educationDetails",v)} placeholder="College, specialization, graduation year..." /></Field>
+            <Field label="Short professional bio" hint="Optional"><textarea value={data.bio} onChange={e=>set("bio",e.target.value)} placeholder="Tell CareerPilot anything important about your background..." className="min-h-32 w-full rounded-xl border border-white/[.1] bg-white/[.035] p-4 text-sm outline-none placeholder:text-[#626473] focus:border-[#8b5cf6]" /></Field>
+          </div>}
 
-            <button
-              type="button"
-              onClick={next}
-              disabled={saving || (currentQuestion.required && !hasValue())}
-              className={`inline-flex h-11 items-center rounded-xl px-5 text-[15px] font-medium transition ${
-                currentQuestion.required && !hasValue()
-                  ? "cursor-not-allowed bg-white/[0.08] text-[#555765]"
-                  : "bg-white text-[#171717] hover:bg-[#f0eef5]"
-              }`}
-            >
-              {saving ? "Saving..." : isLastQuestion ? "Finish Career DNA" : "Continue"}
-              <span className="ml-2">→</span>
-            </button>
-          </div>
-        </footer>
+          {step===1 && <div className="grid gap-6 sm:grid-cols-2">
+            <Field label="What interests you?"><div className="grid gap-2 sm:grid-cols-2">{interestOptions.map(o=><Choice key={o} selected={data.interests===o} onClick={()=>set("interests",o)}>{o}</Choice>)}</div></Field>
+            <div className="space-y-6">
+              <Field label="Target role"><Input value={data.targetRole} onChange={v=>set("targetRole",v)} placeholder="e.g. Data Scientist" /></Field>
+              <Field label="Preferred work mode"><div className="grid grid-cols-2 gap-2">{["Remote","Hybrid","On-site","Flexible"].map(o=><Choice key={o} selected={data.workMode===o} onClick={()=>set("workMode",o)}>{o}</Choice>)}</div></Field>
+              <Field label="Preferred geography"><Input value={data.geography} onChange={v=>set("geography",v)} placeholder="e.g. Delhi NCR, India, Worldwide" /></Field>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Toggle label="Open to international opportunities" checked={data.internationalInterest} onClick={()=>set("internationalInterest",!data.internationalInterest)} />
+                <Toggle label="Interested in remote roles" checked={data.remoteInterest} onClick={()=>set("remoteInterest",!data.remoteInterest)} />
+              </div>
+            </div>
+          </div>}
+
+          {step===2 && <div>
+            <Field label="Skills you already have" hint="These are starting signals. CareerPilot can verify them later.">
+              <div className="grid gap-2 sm:grid-cols-3">{skillOptions.map(s=><Choice key={s} selected={data.skills.includes(s)} onClick={()=>toggleSkill(s)}>{s}</Choice>)}</div>
+              <div className="mt-5"><Input value={data.skills.filter(s=>!skillOptions.includes(s)).join(", ")} onChange={v=>set("skills",[...data.skills.filter(s=>skillOptions.includes(s)),...v.split(",").map(x=>x.trim()).filter(Boolean)])} placeholder="Add other skills, separated by commas" /></div>
+            </Field>
+            <div className="mt-7 rounded-xl border border-[#8b5cf6]/20 bg-[#8b5cf6]/[.06] p-4 text-sm text-[#b9b0ff]">Your selected skills are not treated as verified expertise. They become inputs for assessments, projects and evidence later.</div>
+          </div>}
+
+          {error && <p className="mt-5 text-sm text-red-400">{error}</p>}
+          {saved && <p className="mt-5 text-sm text-emerald-400">Career DNA saved successfully.</p>}
+
+          <footer className="mt-8 flex items-center justify-between border-t border-white/[.08] pt-5">
+            <button onClick={()=>step===0?router.push("/dashboard"):setStep(step-1)} className="text-sm text-[#9a9cab] hover:text-white">{step===0?"Cancel":"Back"}</button>
+            <div className="flex gap-2">
+              {step<2 ? <button onClick={()=>setStep(step+1)} className="rounded-xl bg-white px-5 py-2.5 text-sm font-medium text-[#171717]">Continue →</button> : <button disabled={saving} onClick={save} className="rounded-xl bg-white px-5 py-2.5 text-sm font-medium text-[#171717]">{saving?"Saving...":"Save Career DNA"}</button>}
+            </div>
+          </footer>
+        </section>
       </div>
     </main>
   );
+}
+
+function Field({label,hint,children}:{label:string;hint?:string;children:React.ReactNode}) {
+  return <div><div className="mb-3 flex items-baseline justify-between"><label className="text-sm font-medium">{label}</label>{hint&&<span className="text-xs text-[#6f7180]">{hint}</span>}</div>{children}</div>;
+}
+function Input({value,onChange,placeholder,type="text"}:{value:string;onChange:(v:string)=>void;placeholder:string;type?:string}) {
+  return <input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} className="h-12 w-full rounded-xl border border-white/[.1] bg-white/[.035] px-4 text-sm outline-none placeholder:text-[#626473] focus:border-[#8b5cf6]" />;
+}
+function Choice({selected,onClick,children}:{selected:boolean;onClick:()=>void;children:React.ReactNode}) {
+  return <button type="button" onClick={onClick} className={`min-h-11 rounded-xl border px-3 text-left text-sm transition ${selected?"border-white bg-white text-[#171717]":"border-white/[.09] bg-white/[.025] text-[#d8d8df] hover:border-white/[.22]"}`}>{children}</button>;
+}
+function Toggle({label,checked,onClick}:{label:string;checked:boolean;onClick:()=>void}) {
+  return <button type="button" onClick={onClick} className={`flex items-center justify-between gap-3 rounded-xl border p-3 text-left text-xs ${checked?"border-[#8b5cf6]/40 bg-[#8b5cf6]/10":"border-white/[.09] bg-white/[.025]"}`}><span>{label}</span><span className={`h-5 w-9 rounded-full p-0.5 ${checked?"bg-[#8b5cf6]":"bg-white/[.15]"}`}><span className={`block h-4 w-4 rounded-full bg-white transition ${checked?"translate-x-4":""}`}/></span></button>;
 }
