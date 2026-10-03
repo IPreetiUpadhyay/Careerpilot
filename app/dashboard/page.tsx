@@ -30,7 +30,7 @@ import {
 
 import {
   CareerState,
-  loadCareerState,
+  hydrateCareerState,
 } from "../lib/career-state";
 
 import {
@@ -61,24 +61,33 @@ export default function Dashboard() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
-    const refresh = () => {
-      const current = loadCareerState();
+    let active = true;
+
+    const refresh = async () => {
+      const current = await hydrateCareerState();
       const synced = syncSkillRecords(current);
 
-      setState(synced);
+      if (active) {
+        setState(synced);
+      }
     };
 
-    refresh();
+    void refresh();
+
+    const onUpdate = () => {
+      void refresh();
+    };
 
     window.addEventListener(
       "careerpilot-state-updated",
-      refresh,
+      onUpdate,
     );
 
     return () => {
+      active = false;
       window.removeEventListener(
         "careerpilot-state-updated",
-        refresh,
+        onUpdate,
       );
     };
   }, []);
