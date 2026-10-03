@@ -92,13 +92,12 @@ export async function PATCH(request: Request) {
            password_hash = $4,
            preferences = $5::jsonb,
            updated_at = now()
-       where id = $7
+       where id = $6
        returning id, email, name, phone, preferences, created_at`,
       [
         name,
         phone !== undefined,
         phone ?? "",
-        email,
         passwordHash,
         JSON.stringify(nextPreferences),
         user.id,
