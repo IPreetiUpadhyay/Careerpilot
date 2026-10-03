@@ -10,6 +10,9 @@ create table if not exists users (
   password_hash text not null default '',
   phone text,
   preferences jsonb not null default '{}'::jsonb,
+  pending_email text,
+  email_verification_token_hash text,
+  email_verification_expires_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
