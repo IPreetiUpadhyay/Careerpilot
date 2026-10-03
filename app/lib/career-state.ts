@@ -114,12 +114,29 @@ export async function hydrateCareerState() {
     if (!response.ok) return loadCareerState();
     const data = await response.json();
     if (!data?.state) return loadCareerState();
-    const state = {
+    let state = {
       ...defaultCareerState,
       ...data.state,
       profile: { ...defaultCareerState.profile, ...(data.state.profile ?? {}) },
       progress: { ...defaultCareerState.progress, ...(data.state.progress ?? {}) },
     };
+
+    const me = await fetch("/api/auth/me", { cache: "no-store" });
+    if (me.ok) {
+      const userData = await me.json();
+      if (userData?.user?.name && !state.profile.name) {
+        state = {
+          ...state,
+          profile: { ...state.profile, name: userData.user.name },
+        };
+        void fetch("/api/career-state", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ state }),
+        }).catch(() => {});
+      }
+    }
+
     window.localStorage.setItem(KEY, JSON.stringify(state));
     window.localStorage.setItem(LEGACY, JSON.stringify(state));
     return state;
