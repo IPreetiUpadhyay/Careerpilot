@@ -22,7 +22,7 @@ const FALLBACK:Mission[]=[{id:"real-world-case",title:"Real-world Data Case Stud
 export default function ProjectsPage(){
 const [state,setState]=useState<CareerState|null>(null); const [selected,setSelected]=useState<Mission|null>(null); const [serverProjects,setServerProjects]=useState<any[]>([]); const [role,setRole]=useState("");
 useEffect(()=>{const refresh=async()=>{try{const r=await fetch("/api/projects",{cache:"no-store"});const x=await r.json();if(r.ok){setServerProjects(x.projects??[]);setRole(x.targetRole||"")}}catch{}};refresh();window.addEventListener("careerpilot-state-updated",refresh);return()=>window.removeEventListener("careerpilot-state-updated",refresh)},[]);
-const missions=useMemo(()=>{if(!state?.targetRole&&!role)return[];const gaps=getSkillGapAnalysis(syncSkillRecords(state));const req=new Set(gaps.map(x=>x.skill.toLowerCase()));return ((MISSIONS[role||state?.targetRole||""]??FALLBACK)).slice().sort((a,b)=>b.skills.filter(s=>req.has(s.toLowerCase())).length-a.skills.filter(s=>req.has(s.toLowerCase())).length)},[state]);
+const missions=useMemo(()=>{if(!state?.targetRole&&!role)return[];const gaps=getSkillGapAnalysis(syncSkillRecords(state!));const req=new Set(gaps.map(x=>x.skill.toLowerCase()));return ((MISSIONS[role||state?.targetRole||""]??FALLBACK)).slice().sort((a,b)=>b.skills.filter(s=>req.has(s.toLowerCase())).length-a.skills.filter(s=>req.has(s.toLowerCase())).length)},[state]);
 if(!state)return <Loading/>;
 const currentState=state;
 const completed=state.projects.filter(p=>p.status==="completed").length, active=state.projects.filter(p=>p.status==="in-progress").length;
