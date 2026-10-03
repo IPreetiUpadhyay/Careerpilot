@@ -8,7 +8,6 @@ function analyzeResume(text:string, required:string[], evidence:string[], jd="")
  const jdWords=[...new Set((job.match(/[a-z][a-z0-9+#.]{2,}/g)||[]))].filter(w=>!["and","the","with","for","from","this","that","you","your","are","our","will","have","has","job","role","work"].includes(w));
  const jdMatched=jdWords.filter(w=>lower.includes(w));
  const jdCoverage=jd?Math.round(jdMatched.length/Math.max(jdWords.length,1)*100):0;
- const lower=text.toLowerCase();
  const sections=["experience","education","skills","project","summary","objective","certification"];
  const found=sections.filter(s=>lower.includes(s));
  const contact=/@|\+?\d[\d\s-]{8,}/.test(text);
