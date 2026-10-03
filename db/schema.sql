@@ -350,3 +350,18 @@ create table if not exists career_states (
   state jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now()
 );
+
+
+create table if not exists user_projects (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references users(id) on delete cascade,
+  project_key text not null,
+  title text not null,
+  description text not null default '',
+  status text not null default 'in-progress' check (status in ('in-progress','completed')),
+  milestones jsonb not null default '[]'::jsonb,
+  evidence jsonb not null default '[]'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(user_id, project_key)
+);
