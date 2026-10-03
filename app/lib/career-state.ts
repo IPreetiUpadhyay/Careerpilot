@@ -124,7 +124,7 @@ export async function hydrateCareerState() {
     const me = await fetch("/api/auth/me", { cache: "no-store" });
     if (me.ok) {
       const userData = await me.json();
-      if (userData?.user?.name && !state.profile.name) {
+      if (userData?.user?.name) {
         state = {
           ...state,
           profile: { ...state.profile, name: userData.user.name },
