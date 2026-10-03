@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { getDb } from "../../lib/db";
 import { createSession, getSession } from "../../lib/auth";
+import { createHash, randomBytes } from "crypto";
+import { sendEmailVerification } from "../../lib/email";
 
 export async function GET() {
   const session = await getSession();
@@ -56,7 +58,8 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "New password must be at least 8 characters." }, { status: 400 });
     }
 
-    if (email && email !== user.email) {
+    const emailChange = Boolean(email && email !== user.email);
+    if (emailChange) {
       const existing = await db.query("select id from users where email = $1 and id <> $2", [email, user.id]);
       if (existing.rowCount) return NextResponse.json({ error: "That email is already in use." }, { status: 409 });
     }
@@ -66,6 +69,19 @@ export async function PATCH(request: Request) {
       if (existing.rowCount) return NextResponse.json({ error: "That phone number is already in use." }, { status: 409 });
     }
 
+    if (emailChange) {
+      const token = randomBytes(32).toString("hex");
+      const tokenHash = createHash("sha256").update(token).digest("hex");
+      await db.query("update users set pending_email=$1,email_verification_token_hash=$2,email_verification_expires_at=now()+interval '30 minutes',updated_at=now() where id=$3",
+        [email, tokenHash, user.id]);
+      try {
+        await sendEmailVerification(email!, user.name, token);
+      } catch {
+        await db.query("update users set pending_email=null,email_verification_token_hash=null,email_verification_expires_at=null where id=$1", [user.id]);
+        return NextResponse.json({ error: "Email verification is not configured or the email could not be sent." }, { status: 503 });
+      }
+    }
+
     const passwordHash = newPassword ? await bcrypt.hash(newPassword, 12) : user.password_hash;
     const nextPreferences = preferences === undefined ? user.preferences ?? {} : preferences;
 
@@ -73,9 +89,8 @@ export async function PATCH(request: Request) {
       `update users
        set name = coalesce($1, name),
            phone = case when $2::boolean then nullif($3, '') else phone end,
-           email = coalesce($4, email),
-           password_hash = $5,
-           preferences = $6::jsonb,
+           password_hash = $4,
+           preferences = $5::jsonb,
            updated_at = now()
        where id = $7
        returning id, email, name, phone, preferences, created_at`,
