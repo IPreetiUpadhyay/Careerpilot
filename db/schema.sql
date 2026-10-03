@@ -8,6 +8,8 @@ create table if not exists users (
   email text unique not null,
   name text not null default '',
   password_hash text not null default '',
+  phone text,
+  preferences jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
