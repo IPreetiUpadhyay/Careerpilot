@@ -9,43 +9,38 @@ function hashToken(token: string) {
 
 export async function GET(request: Request) {
   const token = new URL(request.url).searchParams.get("token");
-  if (!token) redirect("/auth?verified=0");
+  if (!token) return redirect("/auth?verified=0");
 
   const db = getDb();
-  if (!db) redirect("/auth?verified=0");
+  if (!db) return redirect("/auth?verified=0");
 
-  try {
-    const tokenHash = hashToken(token);
-    const result = await db.query(
-      "select id,pending_email,email_verification_token_hash,email_verification_expires_at from users where email_verification_token_hash=$1",
-      [tokenHash]
-    );
-    if (!result.rowCount) redirect("/auth?verified=0");
+  const tokenHash = hashToken(token);
+  const result = await db.query(
+    "select id,pending_email,email_verification_expires_at from users where email_verification_token_hash=$1",
+    [tokenHash]
+  );
 
-    const user = result.rows[0];
-    const valid = Boolean(
-      user.pending_email &&
-      user.email_verification_expires_at &&
-      new Date(user.email_verification_expires_at).getTime() > Date.now()
-    );
-    if (!valid) redirect("/auth?verified=0");
+  if (!result.rowCount) return redirect("/auth?verified=0");
 
-    const updated = await db.query(
-      `update users
-       set email=pending_email,
-           pending_email=null,
-           email_verification_token_hash=null,
-           email_verification_expires_at=null,
-           updated_at=now()
-       where id=$1
-       returning id,email,name,phone,preferences,created_at`,
-      [user.id]
-    );
-
-    const nextUser = updated.rows[0];
-    await createSession(nextUser.id, nextUser.email);
-    return redirect("/settings?verified=1");
-  } catch {
+  const user = result.rows[0];
+  if (!user.pending_email || !user.email_verification_expires_at ||
+      new Date(user.email_verification_expires_at).getTime() <= Date.now()) {
     return redirect("/auth?verified=0");
   }
+
+  const updated = await db.query(
+    `update users
+     set email=pending_email,
+         pending_email=null,
+         email_verification_token_hash=null,
+         email_verification_expires_at=null,
+         updated_at=now()
+     where id=$1
+     returning id,email`,
+    [user.id]
+  );
+
+  const nextUser = updated.rows[0];
+  await createSession(nextUser.id, nextUser.email);
+  return redirect("/settings?verified=1");
 }
