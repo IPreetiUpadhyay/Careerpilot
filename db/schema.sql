@@ -7,10 +7,13 @@ create table if not exists users (
   id uuid primary key default gen_random_uuid(),
   email text unique not null,
   name text not null default '',
-  password_hash text not null,
+  password_hash text not null default '',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+create index if not exists users_email_idx
+  on users(email);
 
 create table if not exists career_profiles (
   user_id uuid primary key references users(id) on delete cascade,
@@ -18,7 +21,7 @@ create table if not exists career_profiles (
   education_level text,
   education_details text,
   years_experience numeric(4,1),
-  current_role text,
+  "current_role" text,
   target_role text,
   work_mode text,
   geography text,
@@ -158,19 +161,6 @@ create table if not exists resumes (
 create index if not exists resumes_user_role_idx
   on resumes(user_id, target_role);
 
-create table if not exists resume_analyses (
-  id uuid primary key default gen_random_uuid(),
-  resume_id uuid not null references resumes(id) on delete cascade,
-  job_id uuid,
-  ats_score numeric(5,2),
-  role_alignment numeric(5,2),
-  keyword_coverage numeric(5,2),
-  evidence_score numeric(5,2),
-  gaps jsonb not null default '[]'::jsonb,
-  recommendations jsonb not null default '[]'::jsonb,
-  created_at timestamptz not null default now()
-);
-
 create table if not exists jobs (
   id uuid primary key default gen_random_uuid(),
   external_id text,
@@ -204,6 +194,19 @@ create table if not exists jobs (
 
 create index if not exists jobs_title_location_idx
   on jobs(title, location);
+
+create table if not exists resume_analyses (
+  id uuid primary key default gen_random_uuid(),
+  resume_id uuid not null references resumes(id) on delete cascade,
+  job_id uuid references jobs(id) on delete set null,
+  ats_score numeric(5,2),
+  role_alignment numeric(5,2),
+  keyword_coverage numeric(5,2),
+  evidence_score numeric(5,2),
+  gaps jsonb not null default '[]'::jsonb,
+  recommendations jsonb not null default '[]'::jsonb,
+  created_at timestamptz not null default now()
+);
 
 create table if not exists job_matches (
   user_id uuid not null references users(id) on delete cascade,
