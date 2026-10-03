@@ -41,30 +41,38 @@ export default function SkillsGapPage() {
   const [selectedSkill, setSelectedSkill] =
     useState("");
 
-  const [recordedActions, setRecordedActions] =
-    useState<string[]>([]);
+  const [recordedActions, setRecordedActions] = useState<string[]>([]);
+  const [assessmentScore, setAssessmentScore] = useState("");
+  const [assessmentSaving, setAssessmentSaving] = useState(false);
 
   useEffect(() => {
-    const refresh = () => {
-      const current = loadCareerState();
-      const synced = syncSkillRecords(current);
-
-      setState(synced);
+    const refresh = async () => {
+      const current = syncSkillRecords(loadCareerState());
+      try {
+        const response = await fetch("/api/skills-gap", { cache: "no-store" });
+        const result = await response.json();
+        if (response.ok && Array.isArray(result.analysis)) {
+          const records = result.analysis.map((item: any) => ({
+            name: item.skill,
+            currentLevel: Number(item.currentLevel || 0),
+            targetLevel: Number(item.targetLevel || 0),
+            confidence: item.verified ? 80 : item.currentLevel > 0 ? 35 : 0,
+            evidence: Array.from({ length: Number(item.evidenceCount || 0) }, () => ({ type: "assessment" })),
+            verified: Boolean(item.verified),
+            lastUpdated: new Date().toISOString(),
+          }));
+          setState({ ...current, skillRecords: records });
+        } else {
+          setState(current);
+        }
+      } catch {
+        setState(current);
+      }
     };
 
     refresh();
-
-    window.addEventListener(
-      "careerpilot-state-updated",
-      refresh,
-    );
-
-    return () => {
-      window.removeEventListener(
-        "careerpilot-state-updated",
-        refresh,
-      );
-    };
+    window.addEventListener("careerpilot-state-updated", refresh);
+    return () => window.removeEventListener("careerpilot-state-updated", refresh);
   }, []);
 
   const analysis = useMemo(() => {
@@ -582,22 +590,37 @@ export default function SkillsGapPage() {
 
               </div>
 
+              <div className="mt-5 rounded-2xl border border-white/[.07] bg-black/10 p-4">
+                <p className="text-[10px] uppercase tracking-[.16em] text-zinc-600">Quick assessment</p>
+                <div className="mt-3 flex gap-2">
+                  <input value={assessmentScore} onChange={(e) => setAssessmentScore(e.target.value)} type="number" min="0" max="100" placeholder="Score 0–100" className="h-10 flex-1 rounded-xl border border-white/[.1] bg-white/[.03] px-3 text-sm outline-none placeholder:text-zinc-700" />
+                  <button
+                    disabled={assessmentSaving}
+                    onClick={async () => {
+                      const score = Number(assessmentScore);
+                      if (!Number.isFinite(score) || score < 0 || score > 100) return;
+                      setAssessmentSaving(true);
+                      try {
+                        const response = await fetch("/api/skills-gap", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ skill: selected.skill, score }) });
+                        const result = await response.json();
+                        if (!response.ok) throw new Error(result.error);
+                        setRecordedActions((current) => current.includes(selected.skill) ? current : [...current, selected.skill]);
+                        setAssessmentScore("");
+                        window.dispatchEvent(new Event("careerpilot-state-updated"));
+                      } finally { setAssessmentSaving(false); }
+                    }}
+                    className="rounded-xl bg-white px-4 text-xs font-semibold text-black"
+                  >{assessmentSaving ? "Saving..." : "Save assessment"}</button>
+                </div>
+              </div>
+
               <button
                 onClick={() => {
-                  if (
-                    !recordedActions.includes(
-                      selected.skill,
-                    )
-                  ) {
-                    setRecordedActions(
-                      (current) => [
-                        ...current,
-                        selected.skill,
-                      ],
-                    );
+                  if (!recordedActions.includes(selected.skill)) {
+                    setRecordedActions((current) => [...current, selected.skill]);
                   }
                 }}
-                className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-zinc-100"
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-zinc-100"
               >
                 {recordedActions.includes(
                   selected.skill,
