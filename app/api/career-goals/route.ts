@@ -49,6 +49,9 @@ export async function POST(request: Request) {
     const status = body?.status === undefined ? "active" : text(body.status, 20);
     if (!status || !STATUSES.has(status)) return NextResponse.json({ error: "Invalid goal status." }, { status: 400 });
     const targetDate = body?.targetDate ? text(body.targetDate, 10) : null;
+    if (status === "active") {
+      await db.query("update career_goals set status = 'archived', updated_at = now() where user_id = $1 and status = 'active'", [userId]);
+    }
     const result = await db.query(
       "insert into career_goals (user_id, title, target_role, target_location, work_mode, status, target_date) values ($1, $2, $3, $4, $5, $6, $7) returning id, title, target_role, target_location, work_mode, status, target_date, created_at, updated_at",
       [userId, title, targetRole, targetLocation, workMode, status, targetDate]
@@ -77,6 +80,9 @@ export async function PATCH(request: Request) {
     const status = body.status === undefined ? existing.status : text(body.status, 20);
     const targetDate = body.targetDate === undefined ? existing.target_date : (body.targetDate ? text(body.targetDate, 10) : null);
     if (!status || !STATUSES.has(status)) return NextResponse.json({ error: "Invalid goal status." }, { status: 400 });
+    if (status === "active") {
+      await db.query("update career_goals set status = 'archived', updated_at = now() where user_id = $1 and status = 'active' and id <> $2", [userId, id]);
+    }
     const result = await db.query("update career_goals set title = $1, target_role = $2, target_location = $3, work_mode = $4, status = $5, target_date = $6, updated_at = now() where id = $7 and user_id = $8 returning id, title, target_role, target_location, work_mode, status, target_date, created_at, updated_at", [title, targetRole, targetLocation, workMode, status, targetDate, id, userId]);
     return NextResponse.json({ goal: serialize(result.rows[0]) });
   } catch { return NextResponse.json({ error: "Could not update career goal." }, { status: 503 }); }
