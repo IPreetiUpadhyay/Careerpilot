@@ -94,25 +94,51 @@ export default function CareerDNA() {
   const [data, setData] = useState<Data>(defaultData);
   const [step, setStep] = useState(0);
   const [complete, setComplete] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("careerpilot-dna");
+    let cancelled = false;
 
-      if (saved) {
-        const parsed = JSON.parse(saved);
-
-        setData({
-          ...defaultData,
-          ...parsed,
-          skills: Array.isArray(parsed.skills) ? parsed.skills : [],
-          interests: typeof parsed.interests === "string" ? parsed.interests : "",
+    async function loadProfile() {
+      try {
+        const response = await fetch("/api/career-profile", {
+          method: "GET",
+          cache: "no-store",
         });
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            router.push("/auth");
+            return;
+          }
+          throw new Error("Could not load Career DNA.");
+        }
+
+        const result = await response.json();
+        const profile = result.profile;
+
+        if (!cancelled && profile) {
+          setData({
+            currentRole: profile.currentRole ?? "",
+            interests: profile.interests ?? "",
+            education: profile.education ?? "",
+            skills: Array.isArray(profile.skills) ? profile.skills : [],
+          });
+        }
+      } catch {
+        if (!cancelled) setSaveError("Could not load your Career DNA.");
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-    } catch {
-      // Ignore invalid local storage data
     }
-  }, []);
+
+    loadProfile();
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   const questions = useMemo<Question[]>(
     () => [
@@ -204,17 +230,35 @@ export default function CareerDNA() {
     if (currentQuestion.required && !hasValue()) return;
 
     if (isLastQuestion) {
-      try {
-        localStorage.setItem("careerpilot-dna", JSON.stringify(data));
-      } catch {
-        // Ignore storage errors
-      }
-
-      setComplete(true);
+      void saveCareerDNA();
       return;
     }
 
     setStep((previous) => previous + 1);
+  };
+
+  const saveCareerDNA = async () => {
+    setSaving(true);
+    setSaveError("");
+
+    try {
+      const response = await fetch("/api/career-profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const result = await response.json().catch(() => null);
+        throw new Error(result?.error || "Could not save Career DNA.");
+      }
+
+      setComplete(true);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Could not save Career DNA.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const back = () => {
@@ -227,33 +271,36 @@ export default function CareerDNA() {
   };
 
   const goToCareerGoal = () => {
-    try {
-      localStorage.setItem("careerpilot-dna", JSON.stringify(data));
+    const current = loadCareerState();
 
-      const current = loadCareerState();
+    const nextState: CareerState = {
+      ...current,
+      profile: {
+        ...current.profile,
+        education: data.education,
+        currentRole: data.currentRole,
+      },
+      skills: data.skills,
+      experience:
+        current.experience ||
+        (data.currentRole.toLowerCase().includes("student")
+          ? "Early career"
+          : "Working professional"),
+    };
 
-      const nextState: CareerState = {
-        ...current,
-        profile: {
-          ...current.profile,
-          education: data.education,
-          currentRole: data.currentRole,
-        },
-        skills: data.skills,
-        experience:
-          current.experience ||
-          (data.currentRole.toLowerCase().includes("student")
-            ? "Early career"
-            : "Working professional"),
-      };
-
-      saveCareerState(nextState);
-    } catch {
-      // Ignore storage errors
-    }
-
+    saveCareerState(nextState);
     router.push("/career-goal");
   };
+
+  if (loading) {
+    return (
+      <main className="min-h-[100svh] bg-[#07080d] text-[#f7f7fb]">
+        <div className="mx-auto flex min-h-[100svh] max-w-2xl items-center justify-center px-6">
+          <p className="text-sm text-[#9a9cab]">Loading your Career DNA...</p>
+        </div>
+      </main>
+    );
+  }
 
   if (complete) {
     return (
@@ -269,6 +316,10 @@ export default function CareerDNA() {
 
             <span className="text-sm text-[#9a9cab]">Complete</span>
           </header>
+
+          {saveError && (
+            <p className="mt-6 text-sm text-red-400">{saveError}</p>
+          )}
 
           <div className="h-1 w-full overflow-hidden rounded-full bg-white/[0.08]">
             <div className="h-full w-full rounded-full bg-[#8b5cf6]" />
@@ -290,10 +341,11 @@ export default function CareerDNA() {
               </p>
 
               <button
+                disabled={saving}
                 onClick={goToCareerGoal}
                 className="mt-10 inline-flex h-12 items-center rounded-xl bg-white px-6 text-[15px] font-medium text-[#171717] transition hover:bg-[#f0eef5]"
               >
-                Define my Career Goal
+                {saving ? "Saving..." : "Define my Career Goal"}
                 <span className="ml-2">→</span>
               </button>
             </div>
@@ -429,14 +481,14 @@ export default function CareerDNA() {
             <button
               type="button"
               onClick={next}
-              disabled={currentQuestion.required && !hasValue()}
+              disabled={saving || (currentQuestion.required && !hasValue())}
               className={`inline-flex h-11 items-center rounded-xl px-5 text-[15px] font-medium transition ${
                 currentQuestion.required && !hasValue()
                   ? "cursor-not-allowed bg-white/[0.08] text-[#555765]"
                   : "bg-white text-[#171717] hover:bg-[#f0eef5]"
               }`}
             >
-              {isLastQuestion ? "Finish Career DNA" : "Continue"}
+              {saving ? "Saving..." : isLastQuestion ? "Finish Career DNA" : "Continue"}
               <span className="ml-2">→</span>
             </button>
           </div>
