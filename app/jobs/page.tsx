@@ -45,13 +45,13 @@ function parseJD(raw:string):Analysis{
 }
 
 export default function JobsPage(){
- const [state,setState]=useState<CareerState|null>(null);
+ const [state,setState]=useState<CareerState|null>(null); const [dbJobs,setDbJobs]=useState<Job[]>([]);
  const [tab,setTab]=useState<"explore"|"analyze">("explore");
  const [query,setQuery]=useState(""); const [mode,setMode]=useState("all"); const [scope,setScope]=useState("all"); const [selected,setSelected]=useState<Job|null>(null);
  const [jd,setJd]=useState(""); const [analysis,setAnalysis]=useState<Analysis|null>(null); const [savedAnalysis,setSavedAnalysis]=useState(false);
- useEffect(()=>{const r=()=>setState(loadCareerState());r();window.addEventListener("careerpilot-state-updated",r);return()=>window.removeEventListener("careerpilot-state-updated",r)},[]);
+ useEffect(()=>{const r=()=>setState(loadCareerState());r();window.addEventListener("careerpilot-state-updated",r); fetch("/api/jobs").then(x=>x.json()).then(x=>{if(Array.isArray(x.jobs))setDbJobs(x.jobs.map((j:any)=>({id:j.id,title:j.title,company:j.company,companyType:j.source||"Opportunity",location:j.location||"Not specified",workMode:j.work_mode||"onsite",employmentType:j.employment_type||"full-time",scope:(j.location||"").toLowerCase().includes("worldwide")?"remote-worldwide":"india",skills:Array.isArray(j.skills)?j.skills:[],experience:j.experience_requirement||"Not specified",salary:j.salary_min?`${j.salary_currency||""}${j.salary_min}${j.salary_max?`–${j.salary_max}`:""}`:"Salary not listed",sponsorship:j.visa_sponsorship===true?"yes":j.visa_sponsorship===false?"no":"unknown",source:j.source||"CareerPilot",url:j.url||"#",saved:!!j.saved,requirements:Array.isArray(j.requirements)?j.requirements:[]}))) }).catch(()=>{});return()=>window.removeEventListener("careerpilot-state-updated",r)},[]);
  const current=state; const gaps=current?getSkillGapAnalysis(syncSkillRecords(current)):[];
- const filtered=useMemo(()=>JOBS.filter(j=>(!query||[j.title,j.company,j.location,...j.skills].join(" ").toLowerCase().includes(query.toLowerCase()))&&(mode==="all"||j.workMode===mode)&&(scope==="all"||j.scope===scope)),[query,mode,scope]);
+ const allJobs=[...dbJobs,...JOBS.filter(j=>!dbJobs.some(d=>d.id===j.id))]; const filtered=useMemo(()=>allJobs.filter(j=>(!query||[j.title,j.company,j.location,...j.skills].join(" ").toLowerCase().includes(query.toLowerCase()))&&(mode==="all"||j.workMode===mode)&&(scope==="all"||j.scope===scope)),[query,mode,scope]);
  if(!current)return <Loading/>; const currentState=current;
  const owned=new Set([...currentState.skills,...currentState.skillRecords.filter(s=>s.currentLevel>0).map(s=>s.name)].map(normalize));
  const evidence=new Set(currentState.evidence.flatMap(e=>e.skillNames.map(normalize)));
