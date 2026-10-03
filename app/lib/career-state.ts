@@ -99,5 +99,31 @@ export function saveCareerState(state: CareerState) {
   const next = { ...state, updatedAt: new Date().toISOString() };
   window.localStorage.setItem(KEY, JSON.stringify(next));
   window.localStorage.setItem(LEGACY, JSON.stringify(next));
+  void fetch("/api/career-state", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ state: next }),
+  }).catch(() => {});
   window.dispatchEvent(new Event("careerpilot-state-updated"));
+}
+
+export async function hydrateCareerState() {
+  if (typeof window === "undefined") return defaultCareerState;
+  try {
+    const response = await fetch("/api/career-state", { cache: "no-store" });
+    if (!response.ok) return loadCareerState();
+    const data = await response.json();
+    if (!data?.state) return loadCareerState();
+    const state = {
+      ...defaultCareerState,
+      ...data.state,
+      profile: { ...defaultCareerState.profile, ...(data.state.profile ?? {}) },
+      progress: { ...defaultCareerState.progress, ...(data.state.progress ?? {}) },
+    };
+    window.localStorage.setItem(KEY, JSON.stringify(state));
+    window.localStorage.setItem(LEGACY, JSON.stringify(state));
+    return state;
+  } catch {
+    return loadCareerState();
+  }
 }
