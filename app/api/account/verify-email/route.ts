@@ -44,8 +44,8 @@ export async function GET(request: Request) {
 
     const nextUser = updated.rows[0];
     await createSession(nextUser.id, nextUser.email);
-    redirect("/settings?verified=1");
+    return redirect("/settings?verified=1");
   } catch {
-    redirect("/auth?verified=0");
+    return redirect("/auth?verified=0");
   }
 }
