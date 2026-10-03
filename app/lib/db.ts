@@ -15,3 +15,5 @@ export function getDb() {
   }
   return global.careerPilotPool;
 }
+
+// Deployment validation: backend foundation.
