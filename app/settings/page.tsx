@@ -26,6 +26,10 @@ export default function SettingsPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    const verified = new URLSearchParams(window.location.search).get("verified");
+    if (verified === "1") setMessage("Email verified and updated successfully.");
+    if (verified === "0") setError("That email verification link is invalid or expired.");
+
     fetch("/api/account", { cache: "no-store" }).then(async r => {
       const data = await r.json();
       if (!r.ok) throw new Error(data.error);
