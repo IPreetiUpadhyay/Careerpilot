@@ -331,15 +331,23 @@ function DashboardContent({
 
               </button>
 
-              <button className="p-2.5 text-zinc-500">
+              <a
+                href="/settings"
+                aria-label="Settings"
+                className="p-2.5 text-zinc-500 hover:text-zinc-200"
+              >
                 <Settings size={18} />
-              </button>
+              </a>
 
-              <div className="ml-1 hidden h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/[.06] text-xs sm:flex">
+              <a
+                href="/profile"
+                aria-label="Profile"
+                className="ml-1 hidden h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/[.06] text-xs sm:flex hover:border-violet-300/40"
+              >
                 {getInitials(
                   state.profile.name,
                 )}
-              </div>
+              </a>
             </div>
           </header>
 
