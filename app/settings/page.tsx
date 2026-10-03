@@ -59,11 +59,19 @@ export default function SettingsPage() {
 
   async function changeEmail(e: FormEvent) {
     e.preventDefault();
-    const updated = await update({ email, currentPassword });
-    if (updated) {
-      setCurrentPassword("");
-      setMessage("Email updated.");
-    }
+    const response = await fetch("/api/account", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, currentPassword }),
+    });
+    const data = await response.json();
+    if (!response.ok) return setError(data.error ?? "Could not update email.");
+    setUser(data.user);
+    setCurrentPassword("");
+    setMessage(data.emailVerificationRequired
+      ? "Verification email sent. Your current email stays active until you verify the new address."
+      : "Email updated."
+    );
   }
 
   async function changePassword(e: FormEvent) {
