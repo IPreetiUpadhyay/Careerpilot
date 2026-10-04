@@ -1,0 +1,77 @@
+import { NextResponse } from "next/server";
+import { getDb } from "../../lib/db";
+import { getSession } from "../../lib/auth";
+
+const LEVELS = [
+  { name: "Explorer", min: 0 },
+  { name: "Direction Finder", min: 100 },
+  { name: "Skill Builder", min: 250 },
+  { name: "Portfolio Builder", min: 500 },
+  { name: "Job Ready", min: 800 },
+  { name: "Applicant", min: 1200 },
+  { name: "Interview Ready", min: 1700 },
+  { name: "Career Launcher", min: 2300 },
+];
+
+const ACHIEVEMENTS = [
+  ["career-direction", "Career Direction", "Defined a target career path.", 50],
+  ["skill-verified", "Skill Verified", "Verified your first skill.", 100],
+  ["builder", "Builder", "Completed a practical project.", 150],
+  ["applicant", "Applicant", "Started tracking an application.", 100],
+  ["interview-ready", "Interview Ready", "Completed interview practice.", 125],
+  ["career-launcher", "Career Launcher", "Reached Career Launcher level.", 250],
+];
+
+function levelFor(xp:number) {
+  let level = LEVELS[0];
+  for (const item of LEVELS) if (xp >= item.min) level = item;
+  return { level: LEVELS.indexOf(level) + 1, name: level.name, next: LEVELS[LEVELS.indexOf(level) + 1]?.min ?? null };
+}
+
+export async function GET() {
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+  const db = getDb();
+  if (!db) return NextResponse.json({ error: "Database unavailable." }, { status: 503 });
+
+  try {
+    const [progress, events, achievements] = await Promise.all([
+      db.query("select level,xp,current_streak,longest_streak,updated_at from user_progress where user_id=$1", [session.userId]),
+      db.query("select event_type,xp,metadata,created_at from career_events where user_id=$1 order by created_at desc limit 25", [session.userId]),
+      db.query("select a.code,a.name,a.description,a.xp_reward,ua.unlocked_at from achievements a left join user_achievements ua on ua.achievement_id=a.id and ua.user_id=$1 order by a.xp_reward", [session.userId]),
+    ]);
+    const row = progress.rows[0] ?? { level: 1, xp: 0, current_streak: 0, longest_streak: 0 };
+    const xp = Number(row.xp || 0);
+    return NextResponse.json({ progress: { level: Number(row.level), xp, currentStreak: Number(row.current_streak), longestStreak: Number(row.longest_streak), ...levelFor(xp) }, events: events.rows, achievements: achievements.rows });
+  } catch {
+    return NextResponse.json({ error: "Could not load gamification data." }, { status: 503 });
+  }
+}
+
+export async function POST(req: Request) {
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+  const db = getDb();
+  if (!db) return NextResponse.json({ error: "Database unavailable." }, { status: 503 });
+
+  try {
+    const body = await req.json();
+    const eventType = String(body.eventType || "").trim();
+    const xpReward = Math.max(0, Math.min(500, Number(body.xp || 0)));
+    if (!eventType) return NextResponse.json({ error: "eventType is required." }, { status: 400 });
+
+    const result = await db.query("with inserted as (insert into career_events(user_id,event_type,entity_type,entity_id,xp,metadata) values($1,$2,$3,$4,$5,$6::jsonb) returning xp) insert into user_progress(user_id,level,xp) values($1,1,$5) on conflict(user_id) do update set xp=user_progress.xp+excluded.xp,updated_at=now() returning xp", [session.userId, eventType, body.entityType || null, body.entityId || null, xpReward, JSON.stringify(body.metadata || {})]);
+    const xp = Number(result.rows[0]?.xp || 0);
+    const info = levelFor(xp);
+    await db.query("update user_progress set level=$2,updated_at=now() where user_id=$1", [session.userId, info.level]);
+
+    const unlocked = ACHIEVEMENTS.filter((x:any) => x[0] === String(body.achievementCode || ""));
+    for (const a of unlocked) {
+      await db.query("insert into achievements(code,name,description,xp_reward) values($1,$2,$3,$4) on conflict(code) do update set name=excluded.name,description=excluded.description,xp_reward=excluded.xp_reward", a);
+      await db.query("insert into user_achievements(user_id,achievement_id) select $1,id from achievements where code=$2 on conflict do nothing", [session.userId, a[0]]);
+    }
+    return NextResponse.json({ xp, ...info });
+  } catch {
+    return NextResponse.json({ error: "Could not record career progress." }, { status: 503 });
+  }
+}
