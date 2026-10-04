@@ -10,13 +10,13 @@ const STAGES: {id:ApplicationStage;label:string}[]=[
 
 export default function ApplicationsPage(){
  const [state,setState]=useState<CareerState|null>(null); const [query,setQuery]=useState(""); const [selected,setSelected]=useState<ApplicationRecord|null>(null);
- useEffect(()=>{const r=()=>setState(loadCareerState());r();window.addEventListener("careerpilot-state-updated",r);return()=>window.removeEventListener("careerpilot-state-updated",r)},[]);
+ useEffect(()=>{const r=()=>setState(loadCareerState());r();fetch("/api/applications").then(x=>x.json()).then(x=>{if(Array.isArray(x.applications)){const remote=x.applications;setState(s=>s?{...s,applications:remote}:s)}}).catch(()=>{});window.addEventListener("careerpilot-state-updated",r);return()=>window.removeEventListener("careerpilot-state-updated",r)},[]);
  if(!state)return <Loading/>; const current=state;
  const apps=Array.isArray(current.applications) ? current.applications.filter(a=>a && typeof a==="object" && typeof a.id==="string") : [];
  const opportunities=Array.isArray(current.opportunities) ? current.opportunities.filter(o=>o && typeof o==="object" && typeof o.id==="string") : [];
  const filtered=apps.filter(a=>!query||(`${a.title??""} ${a.company??""} ${a.location??""}`).toLowerCase().includes(query.toLowerCase()));
  function addFromOpportunity(){const saved=opportunities.filter(o=>o.saved);const existing=new Set(apps.map(a=>a.opportunityId));const fresh=saved.filter(o=>!existing.has(o.id));if(!fresh.length)return;const now=new Date().toISOString();const added=fresh.map(o=>({id:"app-"+o.id,opportunityId:o.id,title:o.title,company:o.company,location:o.location,stage:"ready-to-apply" as const,createdAt:now,updatedAt:now}));const n={...current,applications:[...apps,...added]};saveCareerState(n);setState(n);}
- function update(id:string,patch:Partial<ApplicationRecord>){const next=apps.map(a=>a.id===id?{...a,...patch,updatedAt:new Date().toISOString()}:a);const n={...current,applications:next};saveCareerState(n);setState(n);setSelected(next.find(a=>a.id===id)??null);}
+ async function update(id:string,patch:Partial<ApplicationRecord>){const next=apps.map(a=>a.id===id?{...a,...patch,updatedAt:new Date().toISOString()}:a);const n={...current,applications:next};saveCareerState(n);setState(n);setSelected(next.find(a=>a.id===id)??null); fetch("/api/applications",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id,...patch})}).catch(()=>{});}
  const counts=Object.fromEntries(STAGES.map(s=>[s.id,apps.filter(a=>a.stage===s.id).length]));
  return <main className="min-h-screen bg-[#08090d] text-zinc-100"><div className="mx-auto max-w-[1400px] px-5 py-7 sm:px-8 lg:px-10">
  <header className="flex items-center justify-between border-b border-white/[.07] pb-6"><a href="/jobs" className="flex items-center gap-2 text-sm text-zinc-500 hover:text-white"><ArrowLeft size={16}/> Job Intelligence</a><div className="flex items-center gap-2 font-semibold"><span className="grid h-8 w-8 place-items-center rounded-xl bg-white text-black">C</span>CareerPilot</div><span className="text-xs text-zinc-600">Application Command Center</span></header>
