@@ -19,12 +19,13 @@ const destinations: Destination[] = [
 ];
 
 export default function InternationalPage() {
-  const [state, setState] = useState<CareerState | null>(null);
+  const [state, setState] = useState<CareerState | null>(null); const [serverPlan,setServerPlan]=useState<any>(null);
   const [selected, setSelected] = useState("remote");
 
   useEffect(() => {
     const refresh = () => setState(loadCareerState());
     refresh();
+    fetch("/api/international").then(x=>x.json()).then(x=>setServerPlan(x.plan||null)).catch(()=>{});
     window.addEventListener("careerpilot-state-updated", refresh);
     return () => window.removeEventListener("careerpilot-state-updated", refresh);
   }, []);
@@ -111,7 +112,7 @@ export default function InternationalPage() {
               </div>
             </div>
 
-            <div className="mt-7 rounded-2xl border border-amber-400/10 bg-amber-400/[.035] p-5">
+            <div className="mt-7 rounded-2xl border border-violet-400/10 bg-violet-400/[.03] p-5"><p className="text-xs font-medium text-violet-200">CareerPilot readiness</p><p className="mt-2 text-xs leading-5 text-zinc-500">{serverPlan?.summary || "Your global plan is based on skills, evidence, target role and opportunity scope. Immigration requirements must be verified separately."}</p>{serverPlan?.nextSteps?.length ? <div className="mt-3 space-y-2">{serverPlan.nextSteps.map((x:string)=><div key={x} className="text-xs text-zinc-400">• {x}</div>)}</div>:null}</div><div className="mt-7 rounded-2xl border border-amber-400/10 bg-amber-400/[.035] p-5">
               <p className="text-xs font-medium text-amber-200">Important</p>
               <p className="mt-2 text-xs leading-5 text-zinc-500">{destination.officialHint}</p>
             </div>
