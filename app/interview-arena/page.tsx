@@ -19,9 +19,9 @@ const QUESTIONS:Record<InterviewType,string[]> = {
 };
 
 export default function InterviewArena(){
- const [state,setState]=useState<CareerState|null>(null); const [type,setType]=useState<InterviewType>("hr"); const [answer,setAnswer]=useState(""); const [index,setIndex]=useState(0); const [result,setResult]=useState<InterviewSession|null>(null);
- useEffect(()=>{const r=()=>setState(loadCareerState());r();window.addEventListener("careerpilot-state-updated",r);return()=>window.removeEventListener("careerpilot-state-updated",r)},[]);
- if(!state)return <Loading/>; const current=state; const role=current.targetRole||"your target role"; const history=Array.isArray(current.interviews)?current.interviews:[];
+ const [state,setState]=useState<CareerState|null>(null); const [type,setType]=useState<InterviewType>("hr"); const [answer,setAnswer]=useState(""); const [index,setIndex]=useState(0); const [result,setResult]=useState<InterviewSession|null>(null); const [serverHistory,setServerHistory]=useState<InterviewSession[]>([]);
+ useEffect(()=>{const r=()=>setState(loadCareerState());r();fetch("/api/interview").then(x=>x.json()).then(x=>{if(Array.isArray(x.sessions))setServerHistory(x.sessions.map((s:any)=>({id:s.id,type:s.interview_type,role:s.target_role||"your target role",question:"Saved interview session",answer:"",scores:{overall:Number(s.score)||0,relevance:0,structure:0,clarity:0,completeness:0,technical:0},feedback:s.evaluation?.feedback||"",createdAt:s.started_at}))) }).catch(()=>{});window.addEventListener("careerpilot-state-updated",r);return()=>window.removeEventListener("careerpilot-state-updated",r)},[]);
+ if(!state)return <Loading/>; const current=state; const role=current.targetRole||"your target role"; const history=serverHistory.length?serverHistory:(Array.isArray(current.interviews)?current.interviews:[]);
  const question=QUESTIONS[type][index%QUESTIONS[type].length];
  const avg=history.length?Math.round(history.reduce((a,x)=>a+x.scores.overall,0)/history.length):0;
  function evaluate(){
@@ -35,7 +35,7 @@ export default function InterviewArena(){
   const overall=Math.round((relevance+structure+clarity+completeness+technical)/5);
   const feedback=overall>=80?"Strong response. Tighten the opening and add one concrete outcome to make it interview-ready.":overall>=65?"Good foundation. Add more specific evidence, structure your answer clearly, and finish with the result.":"Needs more evidence. Use a clear situation → action → result structure and connect your answer to the target role.";
   const session:InterviewSession={id:"int-"+Date.now(),type,role,question,answer,scores:{relevance,structure,clarity,completeness,technical,overall},feedback,createdAt:new Date().toISOString()};
-  const n={...current,interviews:[session,...history],progress:{...current.progress,interviews:current.progress.interviews+1,xp:current.progress.xp+10}};saveCareerState(n);setState(n);setResult(session);
+  fetch("/api/interview",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type,role,question,answer,score:overall,evaluation:{feedback,scores:session.scores}})}).catch(()=>{}); const n={...current,interviews:[session,...history],progress:{...current.progress,interviews:current.progress.interviews+1,xp:current.progress.xp+10}};saveCareerState(n);setState(n);setResult(session);
  }
  function next(){setResult(null);setAnswer("");setIndex(x=>x+1)}
  return <main className="min-h-screen bg-[#08090d] text-zinc-100"><div className="mx-auto max-w-[1280px] px-5 py-7 sm:px-8 lg:px-10">
