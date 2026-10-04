@@ -12,9 +12,9 @@ export async function GET(){
    db.query("select count(*)::int total,coalesce(round(avg(score),1),0) avg_score from interview_sessions where user_id=$1 and status='completed'",[s.userId]),
    db.query("select count(*)::int total,coalesce(count(*) filter(where readiness>=70),0)::int verified from user_skills where user_id=$1",[s.userId])
   ]);
-  const stages=Object.fromEntries(a.rows.map((x:any)=>[x.status,x.count]));
-  const total=Object.values(stages).reduce((n:any,v:any)=>n+Number(v),0);
-  const interviews=Number(i.rows[0]?.total||0); const offers=Number(stages["offer"]||0); const offerRate=total>0?Math.round((offers/total)*100):0;
+  const stages: Record<string, number> = Object.fromEntries(a.rows.map((x:any)=>[String(x.status), Number(x.count)]));
+  const total: number = Object.values(stages).reduce((n: number, v: number) => n + v, 0);
+  const interviews: number = Number(i.rows[0]?.total || 0); const offers: number = Number(stages["offer"] || 0); const offerRate: number = total > 0 ? Math.round((offers / total) * 100) : 0;
   return NextResponse.json({stages,total,interviews,offers,offerRate,interviewScore:Number(i.rows[0]?.avg_score||0),outcomes:o.rows,skills:{total:Number(p.rows[0]?.total||0),verified:Number(p.rows[0]?.verified||0)}});
  }catch{return NextResponse.json({error:"Could not load outcome analytics."},{status:503})}
 }
