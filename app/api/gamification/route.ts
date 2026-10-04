@@ -60,12 +60,19 @@ export async function POST(req: Request) {
     const xpReward = Math.max(0, Math.min(500, Number(body.xp || 0)));
     if (!eventType) return NextResponse.json({ error: "eventType is required." }, { status: 400 });
 
-    const result = await db.query("with inserted as (insert into career_events(user_id,event_type,entity_type,entity_id,xp,metadata) values($1,$2,$3,$4,$5,$6::jsonb) returning xp) insert into user_progress(user_id,level,xp) values($1,1,$5) on conflict(user_id) do update set xp=user_progress.xp+excluded.xp,updated_at=now() returning xp", [session.userId, eventType, body.entityType || null, body.entityId || null, xpReward, JSON.stringify(body.metadata || {})]);
+    const metadata = body.metadata || {};
+    if (eventType === "quest_completed" && metadata.questId) {
+      const existing = await db.query("select 1 from career_events where user_id=$1 and event_type=$2 and metadata->>'questId'=$3 limit 1", [session.userId, eventType, String(metadata.questId)]);
+      if (existing.rows.length) return NextResponse.json({ error: "Quest already claimed." }, { status: 409 });
+    }
+    const result = await db.query("with inserted as (insert into career_events(user_id,event_type,entity_type,entity_id,xp,metadata) values($1,$2,$3,$4,$5,$6::jsonb) returning xp) insert into user_progress(user_id,level,xp) values($1,1,$5) on conflict(user_id) do update set xp=user_progress.xp+excluded.xp,updated_at=now() returning xp", [session.userId, eventType, body.entityType || null, body.entityId || null, xpReward, JSON.stringify(metadata)]);
     const xp = Number(result.rows[0]?.xp || 0);
     const info = levelFor(xp);
     await db.query("update user_progress set level=$2,updated_at=now() where user_id=$1", [session.userId, info.level]);
 
-    const unlocked = ACHIEVEMENTS.filter((x:any) => x[0] === String(body.achievementCode || ""));
+    const questAchievement: Record<string,string> = { goal: "career-direction", skill: "skill-verified", project: "builder", application: "applicant", interview: "interview-ready" };
+    const achievementCode = String(body.achievementCode || (eventType === "quest_completed" ? questAchievement[String(metadata.questId || "")] || "" : ""));
+    const unlocked = ACHIEVEMENTS.filter((x:any) => x[0] === achievementCode);
     for (const a of unlocked) {
       await db.query("insert into achievements(code,name,description,xp_reward) values($1,$2,$3,$4) on conflict(code) do update set name=excluded.name,description=excluded.description,xp_reward=excluded.xp_reward", a);
       await db.query("insert into user_achievements(user_id,achievement_id) select $1,id from achievements where code=$2 on conflict do nothing", [session.userId, a[0]]);
