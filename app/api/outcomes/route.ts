@@ -14,8 +14,8 @@ export async function GET(){
   ]);
   const stages=Object.fromEntries(a.rows.map((x:any)=>[x.status,x.count]));
   const total=Object.values(stages).reduce((n:any,v:any)=>n+Number(v),0);
-  const interviews=Number(i.rows[0]?.total||0), offers=Number(stages["offer"]||0);
-  return NextResponse.json({stages,total,interviews,offers,offerRate:total?Math.round(offers/total*100):0,interviewScore:Number(i.rows[0]?.avg_score||0),outcomes:o.rows,skills:{total:Number(p.rows[0]?.total||0),verified:Number(p.rows[0]?.verified||0)}});
+  const interviews=Number(i.rows[0]?.total||0); const offers=Number(stages["offer"]||0); const offerRate=total>0?Math.round((offers/total)*100):0;
+  return NextResponse.json({stages,total,interviews,offers,offerRate,interviewScore:Number(i.rows[0]?.avg_score||0),outcomes:o.rows,skills:{total:Number(p.rows[0]?.total||0),verified:Number(p.rows[0]?.verified||0)}});
  }catch{return NextResponse.json({error:"Could not load outcome analytics."},{status:503})}
 }
 
