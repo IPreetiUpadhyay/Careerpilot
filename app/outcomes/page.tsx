@@ -6,11 +6,11 @@ import { CareerState, loadCareerState } from "../lib/career-state";
 import { calculateCareerReadiness } from "../lib/career-intelligence";
 
 export default function OutcomesPage() {
-  const [state, setState] = useState<CareerState | null>(null);
+  const [state, setState] = useState<CareerState | null>(null); const [server,setServer]=useState<any>(null);
 
   useEffect(() => {
     const refresh = () => setState(loadCareerState());
-    refresh();
+    refresh(); fetch("/api/outcomes").then(x=>x.json()).then(setServer).catch(()=>{});
     window.addEventListener("careerpilot-state-updated", refresh);
     return () => window.removeEventListener("careerpilot-state-updated", refresh);
   }, []);
@@ -19,10 +19,10 @@ export default function OutcomesPage() {
     if (!state) return null;
     const applications = state.applications;
     const interviews = state.interviews;
-    const offers = applications.filter(a => a.stage === "offer").length;
+    const offers = server?.offers ?? applications.filter(a => a.stage === "offer").length;
     const rejected = applications.filter(a => a.stage === "rejected").length;
     const active = applications.filter(a => !["rejected", "withdrawn", "offer"].includes(a.stage)).length;
-    const interviewRate = applications.length ? Math.round((interviews.length / applications.length) * 100) : 0;
+    const interviewCount = server?.interviews ?? interviews.length; const interviewRate = applications.length ? Math.round((interviewCount / applications.length) * 100) : 0;
     const offerRate = applications.length ? Math.round((offers / applications.length) * 100) : 0;
     const readiness = calculateCareerReadiness(state);
     return { applications, interviews, offers, rejected, active, interviewRate, offerRate, readiness };
@@ -56,8 +56,8 @@ export default function OutcomesPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Metric icon={FileText} label="Applications" value={String(metrics.applications.length)} />
           <Metric icon={Clock3} label="Active pipeline" value={String(metrics.active)} />
-          <Metric icon={Target} label="Interviews" value={String(metrics.interviews.length)} />
-          <Metric icon={CheckCircle2} label="Offers recorded" value={String(metrics.offers)} />
+          <Metric icon={Target} label="Interviews" value={String(server?.interviews ?? metrics.interviews.length)} />
+          <Metric icon={CheckCircle2} label="Offers recorded" value={String(server?.offers ?? metrics.offers)} />
         </div>
 
         <div className="mt-5 grid gap-5 lg:grid-cols-[1.15fr_.85fr]">
