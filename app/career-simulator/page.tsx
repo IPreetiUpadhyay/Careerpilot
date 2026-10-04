@@ -64,7 +64,7 @@ const scenarios: Scenario[] = [
 
 export default function CareerSimulatorPage() {
   const [state, setState] = useState<CareerState | null>(null);
-  const [selected, setSelected] = useState("current");
+  const [selected, setSelected] = useState("current"); const [serverScenario,setServerScenario]=useState<any>(null);
 
   useEffect(() => {
     setState(loadCareerState());
@@ -73,7 +73,7 @@ export default function CareerSimulatorPage() {
     return () => window.removeEventListener("careerpilot-state-updated", refresh);
   }, []);
 
-  const selectedScenario = scenarios.find(s => s.id === selected) ?? scenarios[0];
+  const selectedScenario = scenarios.find(s => s.id === selected) ?? scenarios[0]; useEffect(()=>{fetch("/api/career-simulator",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({scenario:selected})}).then(x=>x.json()).then(setServerScenario).catch(()=>{})},[selected]);
 
   const analysis = useMemo(() => {
     if (!state) return null;
@@ -88,17 +88,9 @@ export default function CareerSimulatorPage() {
     return <main className="min-h-screen grid place-items-center bg-[#08090d] text-sm text-zinc-500">Loading Career Simulator...</main>;
   }
 
-  const scenarioReadiness =
-    selected === "current"
-      ? analysis.readiness
-      : Math.max(0, analysis.readiness - (selected === "switch" ? 12 : selected === "international" ? 6 : 2));
+  const scenarioReadiness = serverScenario?.scenarioReadiness ?? (selected === "current" ? analysis.readiness : Math.max(0, analysis.readiness - (selected === "switch" ? 12 : selected === "international" ? 6 : 2)));
 
-  const scenarioGapCount =
-    selected === "switch"
-      ? analysis.gaps.length + 2
-      : selected === "international"
-        ? analysis.gaps.length + 1
-        : analysis.gaps.length;
+  const scenarioGapCount = analysis.gaps.length + (serverScenario?.additionalGaps ?? (selected === "switch" ? 2 : selected === "international" ? 1 : 0));
 
   return (
     <main className="min-h-screen bg-[#08090d] text-zinc-100">
