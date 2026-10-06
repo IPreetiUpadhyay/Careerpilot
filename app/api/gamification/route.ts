@@ -66,10 +66,36 @@ export async function POST(req: Request) {
       const existing = await db.query("select 1 from career_events where user_id=$1 and event_type=$2 and metadata->>'questId'=$3 limit 1", [session.userId, eventType, String(metadata.questId)]);
       if (existing.rows.length) return NextResponse.json({ error: "Quest already claimed." }, { status: 409 });
     }
-    const result = await db.query("with inserted as (insert into career_events(user_id,event_type,entity_type,entity_id,xp,metadata) values($1,$2,$3,$4,$5,$6::jsonb) returning xp) insert into user_progress(user_id,level,xp) values($1,1,$5) on conflict(user_id) do update set xp=user_progress.xp+excluded.xp,updated_at=now() returning xp", [session.userId, eventType, body.entityType || null, body.entityId || null, xpReward, JSON.stringify(metadata)]);
-    const xp = Number(result.rows[0]?.xp || 0);
-    const info = levelFor(xp);
-    await db.query("update user_progress set level=$2,updated_at=now() where user_id=$1", [session.userId, info.level]);
+    const client = await db.connect();
+    try {
+      await client.query("begin");
+      await client.query("insert into career_events(user_id,event_type,entity_type,entity_id,xp,metadata) values($1,$2,$3,$4,$5,$6::jsonb)", [session.userId, eventType, body.entityType || null, body.entityId || null, xpReward, JSON.stringify(metadata)]);
+      const progress = await client.query("insert into user_progress(user_id,level,xp,current_streak,longest_streak) values($1,1,$2,case when $2>0 then 1 else 0 end,case when $2>0 then 1 else 0 end) on conflict(user_id) do update set xp=user_progress.xp+excluded.xp,updated_at=now() returning xp,current_streak,longest_streak", [session.userId, xpReward]);
+      const xp = Number(progress.rows[0]?.xp || 0);
+      const info = levelFor(xp);
+      let streak = Number(progress.rows[0]?.current_streak || 0);
+      let longest = Number(progress.rows[0]?.longest_streak || 0);
+      if (xpReward > 0) {
+        const recent = await client.query("select max(created_at)::date as last_day from career_events where user_id=$1 and xp>0", [session.userId]);
+        const lastDay = recent.rows[0]?.last_day;
+        const yesterday = new Date(); yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+        const todayKey = new Date().toISOString().slice(0,10);
+        const yesterdayKey = yesterday.toISOString().slice(0,10);
+        const lastKey = lastDay ? String(lastDay).slice(0,10) : "";
+        if (lastKey === todayKey) streak = Math.max(1, streak);
+        else if (lastKey === yesterdayKey) streak = streak + 1;
+        else streak = 1;
+        longest = Math.max(longest, streak);
+      }
+      await client.query("update user_progress set level=$2,current_streak=$3,longest_streak=$4,updated_at=now() where user_id=$1", [session.userId, info.level, streak, longest]);
+      await client.query("commit");
+      return NextResponse.json({ xp, ...info, currentStreak: streak, longestStreak: longest });
+    } catch (error) {
+      await client.query("rollback");
+      throw error;
+    } finally {
+      client.release();
+    }
 
     const questAchievement: Record<string,string> = { goal: "career-direction", skill: "skill-verified", project: "builder", application: "applicant", interview: "interview-ready" };
     const achievementCode = String(body.achievementCode || (eventType === "quest_completed" ? questAchievement[String(metadata.questId || "")] || "" : ""));
