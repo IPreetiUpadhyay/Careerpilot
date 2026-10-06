@@ -56,6 +56,7 @@ export async function POST(req: Request) {
   if (!db) return NextResponse.json({ error: "Database unavailable." }, { status: 503 });
 
   try {
+    const database = db;
     const body = await req.json();
     const eventType = String(body.eventType || "").trim();
     const xpReward = Math.max(0, Math.min(500, Number(body.xp || 0)));
@@ -101,8 +102,8 @@ export async function POST(req: Request) {
     const achievementCode = String(body.achievementCode || (eventType === "quest_completed" ? questAchievement[String(metadata.questId || "")] || "" : ""));
     const unlocked = ACHIEVEMENTS.filter((x:any) => x[0] === achievementCode);
     for (const a of unlocked) {
-      await db.query("insert into achievements(code,name,description,xp_reward) values($1,$2,$3,$4) on conflict(code) do update set name=excluded.name,description=excluded.description,xp_reward=excluded.xp_reward", a);
-      await db.query("insert into user_achievements(user_id,achievement_id) select $1,id from achievements where code=$2 on conflict do nothing", [session.userId, a[0]]);
+      await database.query("insert into achievements(code,name,description,xp_reward) values($1,$2,$3,$4) on conflict(code) do update set name=excluded.name,description=excluded.description,xp_reward=excluded.xp_reward", a);
+      await database.query("insert into user_achievements(user_id,achievement_id) select $1,id from achievements where code=$2 on conflict do nothing", [session.userId, a[0]]);
     }
     return NextResponse.json({ xp, ...info });
   } catch {
