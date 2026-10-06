@@ -31,11 +31,11 @@ export default function OutcomesPage() {
   if (!state || !metrics) return <main className="min-h-screen grid place-items-center bg-[#08090d] text-sm text-zinc-500">Loading Career Outcomes...</main>;
 
   const stageCounts = [
-    ["Saved", state.applications.filter(a => a.stage === "saved").length],
-    ["Applied", state.applications.filter(a => a.stage === "applied").length],
-    ["Screening", state.applications.filter(a => a.stage === "screening").length],
-    ["Interview", state.applications.filter(a => a.stage === "interview").length],
-    ["Offer", metrics.offers],
+    ["Saved", server?.stages?.saved ?? state.applications.filter(a => a.stage === "saved").length],
+    ["Applied", server?.stages?.applied ?? state.applications.filter(a => a.stage === "applied").length],
+    ["Screening", server?.stages?.screening ?? state.applications.filter(a => a.stage === "screening").length],
+    ["Interview", server?.stages?.interview ?? state.applications.filter(a => a.stage === "interview").length],
+    ["Offer", server?.stages?.offer ?? metrics.offers],
   ];
 
   return (
@@ -93,13 +93,13 @@ export default function OutcomesPage() {
         <section className="mt-5 rounded-3xl border border-white/[.07] bg-white/[.025] p-6">
           <p className="text-xs text-zinc-600">OUTCOME HISTORY</p>
           <div className="mt-4 space-y-2">
-            {state.applications.slice().reverse().slice(0, 8).map(app => (
-              <div key={app.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/[.05] bg-black/10 p-4">
-                <div><p className="text-xs font-medium">{app.title}</p><p className="mt-1 text-[11px] text-zinc-600">{app.company} · {app.location}</p></div>
-                <span className="rounded-full border border-white/[.07] px-3 py-1 text-[10px] capitalize text-zinc-500">{app.stage.replace("-", " ")}</span>
+            {(server?.history || []).slice(0, 10).map((item: any) => (
+              <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/[.05] bg-black/10 p-4">
+                <div><p className="text-xs font-medium capitalize">{String(item.outcome_type).replace("-", " ")}</p><p className="mt-1 text-[11px] text-zinc-600">{item.company ? item.company + " · " + item.title : item.result || "Career outcome"} · {new Date(item.recorded_at).toLocaleDateString()}</p>{item.feedback && <p className="mt-1 text-[11px] text-zinc-500">{item.feedback}</p>}</div>
+                <span className="rounded-full border border-white/[.07] px-3 py-1 text-[10px] capitalize text-zinc-500">{item.result || "recorded"}</span>
               </div>
             ))}
-            {!state.applications.length && <p className="py-8 text-center text-xs text-zinc-700">No application outcomes yet. Your history will appear here as you use the platform.</p>}
+            {!(server?.history || []).length && <p className="py-8 text-center text-xs text-zinc-700">No outcome records yet. Application stage changes and interview results will appear here.</p>}
           </div>
         </section>
       </div>
