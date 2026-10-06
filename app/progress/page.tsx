@@ -28,7 +28,8 @@ export default function ProgressPage() {
   const [state, setState] = useState<CareerState | null>(null);
   const [serverXp, setServerXp] = useState(0);
   const [serverLevel, setServerLevel] = useState(1);
-  const [claiming, setClaiming] = useState<string | null>(null);\n  const [claimed, setClaimed] = useState<string[]>([]);
+  const [claiming, setClaiming] = useState<string | null>(null);
+  const [claimed, setClaimed] = useState<string[]>([]);
 
   useEffect(() => {
     const refresh = async () => {
@@ -38,7 +39,8 @@ export default function ProgressPage() {
         if (r.ok) {
           const d = await r.json();
           setServerXp(Number(d.progress?.xp || 0));
-          setServerLevel(Number(d.progress?.level || 1));\n          setClaimed((d.events || []).filter((e: any) => e.event_type === "quest_completed").map((e: any) => String(e.metadata?.questId || "")).filter(Boolean));
+          setServerLevel(Number(d.progress?.level || 1));
+          setClaimed((d.events || []).filter((e: any) => e.event_type === "quest_completed").map((e: any) => String(e.metadata?.questId || "")).filter(Boolean));
         }
       } catch {}
     };
@@ -72,7 +74,8 @@ export default function ProgressPage() {
       if (r.ok) {
         const d = await r.json();
         setServerXp(Number(d.xp || 0));
-        setServerLevel(Number(d.level || 1));\n        setClaimed(prev => prev.includes(id) ? prev : [...prev, id]);
+        setServerLevel(Number(d.level || 1));
+        setClaimed(prev => prev.includes(id) ? prev : [...prev, id]);
       }
     } finally { setClaiming(null); }
   }
