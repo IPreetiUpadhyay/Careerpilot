@@ -42,7 +42,8 @@ export async function GET() {
     ]);
     const row = progress.rows[0] ?? { level: 1, xp: 0, current_streak: 0, longest_streak: 0 };
     const xp = Number(row.xp || 0);
-    return NextResponse.json({ progress: { level: Number(row.level), xp, currentStreak: Number(row.current_streak), longestStreak: Number(row.longest_streak), ...levelFor(xp) }, events: events.rows, achievements: achievements.rows });
+    const levelInfo = levelFor(xp);
+    return NextResponse.json({ progress: { ...levelInfo, xp, currentStreak: Number(row.current_streak), longestStreak: Number(row.longest_streak) }, events: events.rows, achievements: achievements.rows });
   } catch {
     return NextResponse.json({ error: "Could not load gamification data." }, { status: 503 });
   }
