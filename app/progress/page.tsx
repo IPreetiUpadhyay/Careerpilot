@@ -28,7 +28,7 @@ export default function ProgressPage() {
   const [state, setState] = useState<CareerState | null>(null);
   const [serverXp, setServerXp] = useState(0);
   const [serverLevel, setServerLevel] = useState(1);
-  const [claiming, setClaiming] = useState<string | null>(null);
+  const [claiming, setClaiming] = useState<string | null>(null);\n  const [claimed, setClaimed] = useState<string[]>([]);
 
   useEffect(() => {
     const refresh = async () => {
@@ -38,7 +38,7 @@ export default function ProgressPage() {
         if (r.ok) {
           const d = await r.json();
           setServerXp(Number(d.progress?.xp || 0));
-          setServerLevel(Number(d.progress?.level || 1));
+          setServerLevel(Number(d.progress?.level || 1));\n          setClaimed((d.events || []).filter((e: any) => e.event_type === "quest_completed").map((e: any) => String(e.metadata?.questId || "")).filter(Boolean));
         }
       } catch {}
     };
@@ -54,7 +54,7 @@ export default function ProgressPage() {
   const level = levels[levelIndex];
   const next = levels[levelIndex + 1];
   const progress = next ? Math.min(100, Math.round(((xp - level.min) / (next.min - level.min)) * 100)) : 100;
-  const completedQuests = quests.filter(q => q.done(state)).length;
+  const completedQuests = quests.filter(q => q.done(state) || claimed.includes(q.id)).length;
 
   const badges = useMemo(() => [
     { title: "Career Direction", description: "Defined a target career path.", earned: state.goalSet },
@@ -72,7 +72,7 @@ export default function ProgressPage() {
       if (r.ok) {
         const d = await r.json();
         setServerXp(Number(d.xp || 0));
-        setServerLevel(Number(d.level || 1));
+        setServerLevel(Number(d.level || 1));\n        setClaimed(prev => prev.includes(id) ? prev : [...prev, id]);
       }
     } finally { setClaiming(null); }
   }
@@ -107,7 +107,7 @@ export default function ProgressPage() {
         </section>
         <section>
           <div className="flex items-end justify-between"><div><p className="text-xs text-zinc-600">ACTIVE MISSIONS</p><h2 className="mt-1 text-xl font-semibold">Build progress that matters.</h2></div><span className="text-xs text-zinc-600">{completedQuests} completed</span></div>
-          <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3">{quests.map(q => { const complete = q.done(state); return <div key={q.id} className="rounded-2xl border border-white/[.07] bg-white/[.025] p-5"><div className="flex items-start justify-between"><div className={"grid h-9 w-9 place-items-center rounded-xl " + (complete ? "bg-emerald-400/10 text-emerald-300" : "bg-white/[.04] text-zinc-500")}>{complete ? <CheckCircle2 size={17}/> : <Target size={17}/>}</div><span className="text-xs text-violet-300">+{q.xp} XP</span></div><h3 className="mt-4 text-sm font-medium">{q.title}</h3><p className="mt-1 text-xs leading-5 text-zinc-600">{q.description}</p>{complete ? <p className="mt-4 text-xs text-emerald-300">Completed</p> : <div className="mt-4 flex gap-2"><a href={q.href} className="flex-1 rounded-xl border border-white/[.07] px-3 py-2 text-center text-xs text-zinc-400">Open</a><button onClick={() => void claimQuest(q.id, q.xp)} disabled={claiming === q.id} className="rounded-xl bg-white px-3 py-2 text-xs font-semibold text-black">Claim XP</button></div>}</div>; })}</div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3">{quests.map(q => { const complete = q.done(state) || claimed.includes(q.id); return <div key={q.id} className="rounded-2xl border border-white/[.07] bg-white/[.025] p-5"><div className="flex items-start justify-between"><div className={"grid h-9 w-9 place-items-center rounded-xl " + (complete ? "bg-emerald-400/10 text-emerald-300" : "bg-white/[.04] text-zinc-500")}>{complete ? <CheckCircle2 size={17}/> : <Target size={17}/>}</div><span className="text-xs text-violet-300">+{q.xp} XP</span></div><h3 className="mt-4 text-sm font-medium">{q.title}</h3><p className="mt-1 text-xs leading-5 text-zinc-600">{q.description}</p>{complete ? <p className="mt-4 text-xs text-emerald-300">Completed</p> : <div className="mt-4 flex gap-2"><a href={q.href} className="flex-1 rounded-xl border border-white/[.07] px-3 py-2 text-center text-xs text-zinc-400">Open</a><button onClick={() => void claimQuest(q.id, q.xp)} disabled={claiming === q.id} className="rounded-xl bg-white px-3 py-2 text-xs font-semibold text-black">Claim XP</button></div>}</div>; })}</div>
         </section>
         <section className="mt-9">
           <p className="text-xs text-zinc-600">BADGES</p>
