@@ -59,19 +59,23 @@ export async function POST(req: Request) {
     const database = db;
     const userId = session.userId;
     const body = await req.json();
+    let responseXp = 0;
+    let responseInfo = levelFor(0);
+    let responseStreak = 0;
+    let responseLongest = 0;
     const eventType = String(body.eventType || "").trim();
     const xpReward = Math.max(0, Math.min(500, Number(body.xp || 0)));
     if (!eventType) return NextResponse.json({ error: "eventType is required." }, { status: 400 });
 
     const metadata = body.metadata || {};
     if (eventType === "quest_completed" && metadata.questId) {
-      const existing = await db.query("select 1 from career_events where user_id=$1 and event_type=$2 and metadata->>'questId'=$3 limit 1", [session.userId, eventType, String(metadata.questId)]);
+      const existing = await db.query("select 1 from career_events where user_id=$1 and event_type=$2 and metadata->>'questId'=$3 limit 1", [userId, eventType, String(metadata.questId)]);
       if (existing.rows.length) return NextResponse.json({ error: "Quest already claimed." }, { status: 409 });
     }
     const client = await db.connect();
     try {
       await client.query("begin");
-      await client.query("insert into career_events(user_id,event_type,entity_type,entity_id,xp,metadata) values($1,$2,$3,$4,$5,$6::jsonb)", [session.userId, eventType, body.entityType || null, body.entityId || null, xpReward, JSON.stringify(metadata)]);
+      await client.query("insert into career_events(user_id,event_type,entity_type,entity_id,xp,metadata) values($1,$2,$3,$4,$5,$6::jsonb)", [userId, eventType, body.entityType || null, body.entityId || null, xpReward, JSON.stringify(metadata)]);
       const progress = await client.query("insert into user_progress(user_id,level,xp,current_streak,longest_streak) values($1,1,$2,case when $2>0 then 1 else 0 end,case when $2>0 then 1 else 0 end) on conflict(user_id) do update set xp=user_progress.xp+excluded.xp,updated_at=now() returning xp,current_streak,longest_streak", [session.userId, xpReward]);
       const xp = Number(progress.rows[0]?.xp || 0);
       const info = levelFor(xp);
@@ -89,9 +93,12 @@ export async function POST(req: Request) {
         else streak = 1;
         longest = Math.max(longest, streak);
       }
-      await client.query("update user_progress set level=$2,current_streak=$3,longest_streak=$4,updated_at=now() where user_id=$1", [session.userId, info.level, streak, longest]);
+      await client.query("update user_progress set level=$2,current_streak=$3,longest_streak=$4,updated_at=now() where user_id=$1", [userId, info.level, streak, longest]);
       await client.query("commit");
-      return NextResponse.json({ xp, ...info, currentStreak: streak, longestStreak: longest });
+      responseXp = xp;
+      responseInfo = info;
+      responseStreak = streak;
+      responseLongest = longest;
     } catch (error) {
       await client.query("rollback");
       throw error;
@@ -106,7 +113,7 @@ export async function POST(req: Request) {
       await database.query("insert into achievements(code,name,description,xp_reward) values($1,$2,$3,$4) on conflict(code) do update set name=excluded.name,description=excluded.description,xp_reward=excluded.xp_reward", a);
       await database.query("insert into user_achievements(user_id,achievement_id) select $1,id from achievements where code=$2 on conflict do nothing", [userId, a[0]]);
     }
-    return NextResponse.json({ xp, ...info });
+    return NextResponse.json({ xp: responseXp, ...responseInfo, currentStreak: responseStreak, longestStreak: responseLongest });
   } catch {
     return NextResponse.json({ error: "Could not record career progress." }, { status: 503 });
   }
