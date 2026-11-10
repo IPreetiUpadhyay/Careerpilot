@@ -1,13 +1,13 @@
 "use client";
 
-import { FormEvent, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { FormEvent, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowRight, Eye, EyeOff, Loader2, LockKeyhole } from "lucide-react";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
-  const params = useSearchParams();
-  const token = params.get("token") || "";
+  const [token, setToken] = useState("");
+  useEffect(() => { setToken(new URLSearchParams(window.location.search).get("token") || ""); }, []);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [show, setShow] = useState(false);
