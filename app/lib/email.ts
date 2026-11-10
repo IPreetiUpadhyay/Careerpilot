@@ -1,7 +1,8 @@
 function escapeHtml(value: string) {
-  return value.replace(/[&<>"']/g, char => ({
+  const entities: Record<string, string> = {
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
-  })[char] || char);
+  };
+  return value.replace(/[&<>"']/g, char => entities[char] || char);
 }
 
 async function sendCareerPilotEmail(to: string, subject: string, html: string) {
