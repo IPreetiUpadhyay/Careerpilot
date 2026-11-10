@@ -1,7 +1,5 @@
 "use client";
 
-// Deployment trigger: AI Mentor type fix is ready.
-
 import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, BriefcaseBusiness, FileText, FolderKanban, Gauge, MessageCircle, Send, Sparkles, Target, TrendingUp, Bot } from "lucide-react";
 import { CareerState, loadCareerState } from "../lib/career-state";
@@ -22,6 +20,8 @@ export default function AIMentorPage() {
   const [state, setState] = useState<CareerState | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const [mode, setMode] = useState<"ai" | "local" | null>(null);
 
   useEffect(() => {
     const refresh = () => setState(loadCareerState());
@@ -52,20 +52,38 @@ export default function AIMentorPage() {
 
   if (!state || !analysis) return <main className="min-h-screen grid place-items-center bg-[#08090d] text-sm text-zinc-500">Loading CareerPilot AI...</main>;
 
-  const send = (text = input) => {
+  const send = async (text = input) => {
     const clean = text.trim();
-    if (!clean) return;
-    const reply = buildMentorReply(clean, state, analysis);
-    setMessages(prev => prev.concat([
-      { id: crypto.randomUUID(), role: "user", text: clean },
-      { id: crypto.randomUUID(), role: "mentor", text: reply }
-    ]));
+    if (!clean || sending) return;
+    const userMessage: Message = { id: crypto.randomUUID(), role: "user", text: clean };
+    setMessages(prev => [...prev, userMessage]);
     setInput("");
+    setSending(true);
+    try {
+      const response = await fetch("/api/mentor", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: clean, context: state }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Mentor request failed.");
+      setMode(data.mode === "ai" ? "ai" : "local");
+      const reply = typeof data.message === "string" && data.message
+        ? data.message
+        : buildMentorReply(clean, state, analysis);
+      setMessages(prev => [...prev, { id: crypto.randomUUID(), role: "mentor", text: reply }]);
+    } catch (error) {
+      const reply = error instanceof Error ? error.message : "I couldn't reach CareerPilot right now. Please try again.";
+      setMessages(prev => [...prev, { id: crypto.randomUUID(), role: "mentor", text: reply }]);
+    } finally {
+      setSending(false);
+    }
   };
 
   const clear = () => {
     localStorage.removeItem(STORAGE_KEY);
     setMessages([]);
+    setMode(null);
   };
 
   return (
@@ -85,10 +103,10 @@ export default function AIMentorPage() {
           <div>
             <div className="flex items-center gap-2 text-xs font-medium text-violet-300"><Bot size={15}/> Career Mentor</div>
             <h1 className="mt-3 text-3xl font-semibold tracking-[-.03em] sm:text-4xl">Your career, with context.</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">Ask CareerPilot about your direction, skills, learning, portfolio, applications or interviews. Responses are grounded in your current Career State.</p>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">Ask CareerPilot about your direction, skills, learning, portfolio, applications or interviews. Responses use your saved Career State.</p>
 
             <div className="mt-6 flex flex-wrap gap-2">
-              {prompts.map(p => <button key={p} onClick={() => send(p)} className="rounded-full border border-white/[.08] bg-white/[.025] px-3 py-2 text-xs text-zinc-400 transition hover:border-violet-400/20 hover:text-zinc-200">{p}</button>)}
+              {prompts.map(p => <button key={p} disabled={sending} onClick={() => send(p)} className="rounded-full border border-white/[.08] bg-white/[.025] px-3 py-2 text-xs text-zinc-400 transition hover:border-violet-400/20 hover:text-zinc-200 disabled:opacity-40">{p}</button>)}
             </div>
 
             <div className="mt-6 overflow-hidden rounded-3xl border border-white/[.07] bg-white/[.02]">
@@ -107,12 +125,14 @@ export default function AIMentorPage() {
                     <div className={m.role === "user" ? "max-w-[82%] rounded-2xl rounded-br-md bg-white px-4 py-3 text-sm text-black" : "max-w-[88%] rounded-2xl rounded-bl-md border border-white/[.07] bg-white/[.035] px-4 py-3 text-sm leading-6 text-zinc-300"}>{m.text}</div>
                   </div>
                 ))}
+                {sending && <div className="text-xs text-violet-300">CareerPilot is reviewing your saved career context...</div>}
               </div>
               <div className="border-t border-white/[.07] p-3">
-                <form onSubmit={e => { e.preventDefault(); send(); }} className="flex gap-2">
-                  <input value={input} onChange={e => setInput(e.target.value)} placeholder="Ask your career mentor..." className="min-w-0 flex-1 rounded-xl border border-white/[.07] bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-700 focus:border-violet-400/30" />
-                  <button className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white text-black"><Send size={16}/></button>
+                <form onSubmit={e => { e.preventDefault(); void send(); }} className="flex gap-2">
+                  <input value={input} onChange={e => setInput(e.target.value)} disabled={sending} placeholder="Ask your career mentor..." className="min-w-0 flex-1 rounded-xl border border-white/[.07] bg-black/20 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-700 focus:border-violet-400/30 disabled:opacity-50" />
+                  <button disabled={sending || !input.trim()} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white text-black disabled:opacity-40"><Send size={16}/></button>
                 </form>
+                {mode && <p className="px-1 pt-2 text-[10px] text-zinc-600">{mode === "ai" ? "AI mentor · saved career context" : "CareerPilot local guidance"}</p>}
               </div>
             </div>
           </div>
